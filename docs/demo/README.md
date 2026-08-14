@@ -4,6 +4,8 @@ This folder contains the repeatable demonstration package for the Case workflow 
 
 Start with [Setup and reset](setup-and-reset.md), then follow [Case triage, live LLM investigation, and AI quality](case-triage-and-ai-quality.md).
 
+The walkthrough defines a numbered screenshot sequence for the Case queue, every Case tab, nested Alert and Artifact evidence, and the Investigation before/after state. Image references use the repository placeholder convention (`img.png`, `img_1.png`, and so on); replace them with captures from the local demo environment before publishing the guide.
+
 ## Feature status on this branch
 
 | Feature | Status |
