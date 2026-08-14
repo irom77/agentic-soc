@@ -36,6 +36,17 @@ def _prompt_file_path(spec, *, language=None):
     return Path(settings.BASE_DIR) / "data" / "playbooks" / spec.directory / filename
 
 
+def _read_prompt_file(spec, *, language=None):
+    path = _prompt_file_path(spec, language=language)
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    if language != "en":
+        fallback_path = _prompt_file_path(spec, language="en")
+        if fallback_path.exists():
+            return fallback_path.read_text(encoding="utf-8")
+    raise FileNotFoundError(f"Prompt file not found: {path}")
+
+
 def _prompt_spec(prompt_id):
     try:
         return PROMPT_CATALOG[prompt_id]
@@ -45,7 +56,7 @@ def _prompt_spec(prompt_id):
 
 def read_prompt(prompt_id, *, language=None):
     spec = _prompt_spec(prompt_id)
-    return _prompt_file_path(spec, language=language).read_text(encoding="utf-8")
+    return _read_prompt_file(spec, language=language)
 
 
 STRUCTURED_OUTPUT_MODEL_TAG = "structured_output"

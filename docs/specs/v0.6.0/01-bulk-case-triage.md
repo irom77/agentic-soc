@@ -4,28 +4,28 @@ Status: Confirmed
 
 ## 1. Purpose
 
-允许分析师在 Case 列表中明确勾选一组 Case，一次修改相同的分诊字段。该功能优化重复人工操作，不替代 Case Relationships、抑制规则、AI 分析或 Playbook。
+Allow analysts to explicitly select a group of Cases from the Case list and apply the same triage fields in one operation. This feature reduces repetitive manual work; it does not replace Case Relationships, suppression rules, AI analysis, or Playbooks.
 
 ## 2. Scope
 
 ### Included
 
-- 仅 Case 支持批量分诊。
-- 一次可组合修改 Assignee、Status、Severity、Verdict。
-- 最多 100 个显式 Case ID。
-- 支持跨分页选择。
-- 同步执行并返回逐 Case 成功或失败结果。
-- 允许部分成功。
+- Bulk triage is supported for Cases only.
+- Assignee, Status, Severity, and Verdict can be changed together in one request.
+- Up to 100 explicit Case IDs.
+- Supports cross-page selection.
+- Executes synchronously and returns per-Case success or failure results.
+- Partial success is allowed.
 
 ### Excluded
 
-- Alert 批量分诊。
-- Priority 和 Tags 批量修改。
-- 对当前筛选结果全部执行。
-- 后台批量任务。
-- 服务端幂等键。
-- updated_at 乐观锁。
-- 批次级 AuditLog 实体。
+- Bulk triage for Alerts.
+- Bulk changes to Priority or Tags.
+- Applying the action to the entire current filter result set.
+- Background bulk jobs.
+- Server-side idempotency keys.
+- updated_at optimistic locking.
+- A batch-level AuditLog entity.
 
 ## 3. Permission matrix
 
@@ -36,11 +36,11 @@ Status: Confirmed
 | Bulk assign to any valid user | Yes | Yes | No |
 | Bulk close | Yes | Yes | No |
 
-权限必须在服务端检查。User 不受 assignee 所有权限制。
+Permissions must be checked on the server. User is not restricted by assignee ownership.
 
 ## 4. Shared Case state machine
 
-单条 PATCH 与 bulk triage 必须调用同一个 domain service，不得分别维护状态逻辑。
+Single-Case PATCH and bulk triage must call the same domain service; state logic must not be maintained separately.
 
 ### Allowed transitions
 
@@ -52,61 +52,61 @@ Status: Confirmed
 | Resolved | In Progress, Closed |
 | Closed | In Progress |
 
-相同状态写入可以作为无变化字段跳过，不应产生状态错误。
+Writing the same state may be treated as a no-op and should not produce a state error.
 
 ### Transition side effects
 
-- Case 第一次离开 `New` 时设置 `acknowledged_time=now()`。
-- `acknowledged_time` 设置后永久保留，Reopen 不重置。
-- 进入 `Closed` 时设置 `closed_time=now()`。
-- 进入 `Closed` 必须在最终状态上存在非空 Verdict，并要求本次请求提供 disposition note。
-- `Closed → In Progress` 是 Reopen：
-  - 清空 `closed_time`。
-  - 清空 `verdict`。
-  - 保留 Summary、acknowledged_time 和历史审计。
-- 其他离开 Closed 的路径不存在。
+- When a Case leaves `New` for the first time, set `acknowledged_time=now()`.
+- Once set, `acknowledged_time` is permanent and is not reset by Reopen.
+- When entering `Closed`, set `closed_time=now()`.
+- Entering `Closed` requires a non-empty Verdict in the final state and requires this request to provide a disposition note.
+- `Closed → In Progress` is Reopen:
+  - Clear `closed_time`.
+  - Clear `verdict`.
+  - Keep Summary, `acknowledged_time`, and historical audit data.
+- No other path out of Closed exists.
 
-状态机应作为可复用服务，例如 `apps.cases.services.transition_case()`；Serializer 和 bulk endpoint 都调用它。
+The state machine should be implemented as a reusable service, for example `apps.cases.services.transition_case()`, and both the serializer and the bulk endpoint must call it.
 
 ## 5. Editable field semantics
 
 ### Assignee
 
-- 字段未包含：保持不变。
-- 提供有效用户 ID：设置新 assignee。
-- 显式 `null`：取消分配。
-- 不允许设置不存在或不可用的用户。
+- Field omitted: leave unchanged.
+- Valid user ID provided: set the new assignee.
+- Explicit `null`: unassign.
+- Do not allow a nonexistent or unavailable user.
 
 ### Status
 
-- 字段未包含：保持不变。
-- 必须是 CaseStatus 枚举。
-- 必须满足共享状态机。
-- Status 不允许清空或设为 null。
+- Field omitted: leave unchanged.
+- Must be a `CaseStatus` enum value.
+- Must satisfy the shared state machine.
+- Status cannot be cleared or set to null.
 
 ### Severity
 
-- 字段未包含：保持不变。
-- 必须是 CaseSeverity 枚举。
-- 不使用空字符串表达清空；使用 `Unknown`。
+- Field omitted: leave unchanged.
+- Must be a `CaseSeverity` enum value.
+- Do not use an empty string to express clearing; use `Unknown`.
 
 ### Verdict
 
-- 字段未包含：保持不变。
-- 必须是 CaseVerdict 枚举。
-- 非 Closed Case 可以显式设为 null/空值以清空 Verdict。
-- 请求结束后的 Case 若为 Closed，Verdict 必须非空。
-- 不允许只清空 Closed Case 的 Verdict。
+- Field omitted: leave unchanged.
+- Must be a `CaseVerdict` enum value.
+- A non-Closed Case may be explicitly set to null/empty to clear the Verdict.
+- If the Case is Closed after the request, Verdict must be non-empty.
+- Do not allow clearing the Verdict of a Closed Case only.
 
 ### Multi-field evaluation
 
-校验应基于本次请求全部字段应用后的最终 Case 状态，而不是按 JSON 字段顺序执行。例如同一次请求可以把 New Case 设为 Closed 并提供 Verdict。
+Validation must be based on the final Case state after applying all fields from this request, not on JSON field order. For example, one request may set a New Case to Closed and provide a Verdict in the same payload.
 
 ## 6. Bulk close note
 
-进入 Closed 时 `reason` 必填。该文本同时用于审计和 Summary 追加。
+When entering Closed, `reason` is required. The text is used for both audit and Summary appending.
 
-Summary 追加格式：
+Summary append format:
 
 ```markdown
 
@@ -115,14 +115,14 @@ Summary 追加格式：
 Confirmed as false positive after campaign review.
 ```
 
-规则：
+Rules:
 
-- 保留现有 Summary。
-- 现有 Summary 与新段落之间插入空行。
-- 标题时间使用 UTC 的稳定格式。
-- actor 使用当前用户名。
-- 对每个成功关闭的 Case 追加相同说明。
-- 普通分配、Severity、Status 或 Verdict 修改的 reason 可选；如果提供，只写审计，不追加 Summary。
+- Preserve the existing Summary.
+- Insert a blank line between the existing Summary and the new paragraph.
+- The header timestamp uses a stable UTC format.
+- `actor` uses the current username.
+- Append the same note to every successfully closed Case.
+- For ordinary assignee, Severity, Status, or Verdict changes, `reason` is optional; if provided, write it only to audit and do not append it to Summary.
 
 ## 7. API
 
@@ -130,7 +130,7 @@ Confirmed as false positive after campaign review.
 
 `POST /api/cases/bulk-triage/`
 
-这是 Case 专用 collection action，不实现通用 bulk PATCH。
+This is a Case-specific collection action; there is no generic bulk PATCH.
 
 ### Request
 
@@ -152,17 +152,17 @@ Confirmed as false positive after campaign review.
 
 Validation:
 
-- `case_ids` 必须是非空数组。
-- 去重后最多 100 个。
-- ID 必须是合法 UUID；请求结构中的非法 UUID 是请求级 400，而不存在的合法 UUID 是逐项失败。
-- `changes` 至少包含一个允许字段。
-- 不接受 Priority、Tags 或其他字段。
-- `reason` 去除首尾空白后校验。
-- 如果请求的最终目标状态是 Closed，reason 必填。
+- `case_ids` must be a non-empty array.
+- After deduplication, there must be at most 100 IDs.
+- IDs must be valid UUIDs; an invalid UUID in the request structure is a request-level 400, while a valid UUID that does not exist fails per item.
+- `changes` must contain at least one allowed field.
+- Priority, Tags, and any other fields are rejected.
+- `reason` is validated after trimming leading and trailing whitespace.
+- If the request’s final target state is Closed, `reason` is required.
 
 ### Success and partial success response
 
-只要请求结构有效，返回 HTTP 200：
+If the request structure is valid, return HTTP 200:
 
 ```json
 {
@@ -188,7 +188,7 @@ Validation:
 }
 ```
 
-允许的安全失败码至少包括：
+Allowed safe failure codes must include at least:
 
 - `not_found`
 - `permission_denied`
@@ -197,46 +197,46 @@ Validation:
 - `invalid_assignee`
 - `update_failed`
 
-不得在 `detail` 返回 traceback 或数据库错误。
+`detail` must not include tracebacks or database errors.
 
 ### Request-level errors
 
-以下返回 400，不处理任何 Case：
+The following return 400 and do not process any Case:
 
-- 空 case_ids。
-- 超过 100 个 ID。
-- 非法 UUID。
-- changes 为空。
-- 未知字段。
-- 非法枚举值。
-- 目标 Closed 但 reason 缺失。
+- Empty `case_ids`.
+- More than 100 IDs.
+- Invalid UUIDs.
+- Empty `changes`.
+- Unknown fields.
+- Invalid enum values.
+- Target Closed but `reason` is missing.
 
-401/403 使用现有认证和权限响应。
+Use the existing authentication and permission responses for 401/403.
 
 ## 8. Transaction and failure behavior
 
-- 整批不使用一个全局原子事务。
-- 每个 Case 在自己的短事务中读取、应用状态机、保存并写 AuditLog。
-- 一个 Case 失败不得回滚已成功 Case。
-- 使用 last-write-wins，不比较客户端看到的 updated_at。
-- 在事务中读取最新 Case；只覆盖请求明确包含的字段。
-- 前端请求进行中禁用提交按钮，平台不提供服务端 idempotency key。
+- The batch must not use one global atomic transaction.
+- Each Case should be read, processed by the state machine, saved, and have AuditLog written in its own short transaction.
+- Failure of one Case must not roll back already successful Cases.
+- Use last-write-wins; do not compare the client’s observed `updated_at`.
+- Read the latest Case inside the transaction and only overwrite fields explicitly included in the request.
+- The frontend should disable the submit button while the request is in flight; the platform does not provide a server-side idempotency key.
 
 ## 9. Notifications
 
-只有 assignee 实际变化时产生 assignment notification。
+Only changes in the actual assignee generate assignment notifications.
 
-- 按最终 assignee 分组。
-- 每位接收人一次批量请求最多收到一条 Inbox 消息。
-- 消息包含成功分配给该用户的 Case 数量和可打开的 Case ID 列表。
-- 失败 Case 不进入通知。
-- 取消分配不发送通知。
-- 如果 assignee 未改变，不发送通知。
-- 通知在对应 Case 事务成功后统一生成；通知失败不得把已完成业务更新伪装为失败，应按现有通知错误策略显式记录。
+- Group by the final assignee.
+- Each recipient should receive at most one Inbox message per bulk request.
+- The message includes the number of Cases successfully assigned to that user and a list of openable Case IDs.
+- Failed Cases are not included in notifications.
+- Unassigning does not send a notification.
+- If the assignee does not change, do not send a notification.
+- Notifications are generated after the corresponding Case transaction succeeds; notification failure must not make completed business updates look failed, and should instead be recorded according to the existing notification error policy.
 
 ## 10. Audit
 
-每个成功 Case 写一条现有 `updated` AuditLog：
+Each successful Case writes one existing `updated` AuditLog entry:
 
 ```json
 {
@@ -253,71 +253,71 @@ Validation:
 }
 ```
 
-- 后端为每次请求生成一个 UUID operation_id。
-- 同一请求的所有成功 Case 共享 operation_id。
-- 不创建单独的批次 AuditLog。
-- 无实际字段变化的 Case 可以视为成功，但不得写空 changes 审计；响应应包含 `unchanged: true`。
-- 失败 Case 不写业务更新审计。
+- The backend generates one UUID `operation_id` per request.
+- All successful Cases from the same request share the same `operation_id`.
+- Do not create a separate batch AuditLog.
+- A Case with no actual field changes may still be treated as success, but it must not write an empty `changes` audit entry; the response should include `unchanged: true`.
+- Failed Cases do not write business-update audit records.
 
 ## 11. Frontend
 
 ### Selection
 
-- 仅 Case 主列表启用批量分诊。
-- 翻页保留选择。
-- Search、普通 Filter 或 Advanced Filter 发生变化时清空选择。
-- 不支持“Select all filtered results”。
-- 最多选择 100 条；达到上限后其他 checkbox disabled，并显示上限提示。
-- Toolbar 始终显示选中数量和 Clear selection。
+- Bulk triage is enabled only on the main Case list.
+- Selection persists across pagination.
+- Changing Search, normal Filter, or Advanced Filter clears the selection.
+- “Select all filtered results” is not supported.
+- Up to 100 items can be selected; once the limit is reached, other checkboxes become disabled and a limit message is shown.
+- The toolbar always shows the selected count and a Clear selection action.
 
 ### Bulk triage modal
 
-- 用户点击 Bulk Triage 打开 Modal，不立即执行。
-- 每个字段有独立“修改此字段”开关；未启用字段不进入 changes。
-- Assignee 支持选择用户和 Unassigned。
-- Status、Severity、Verdict 使用现有选项与 Tag 表现。
-- reason 默认可选；Status 选择 Closed 后立即变为必填并解释会追加到 Summary。
-- 显示选中数量、字段变更预览和关闭副作用。
-- 提交期间禁用所有操作。
+- The user clicks Bulk Triage to open the modal; nothing runs immediately.
+- Each field has its own “edit this field” toggle; fields that are not enabled are not included in `changes`.
+- Assignee supports selecting a user or Unassigned.
+- Status, Severity, and Verdict use the existing options and Tag styling.
+- `reason` is optional by default; after Closed is selected it becomes required immediately and the UI explains that it will be appended to Summary.
+- Show the selected count, a field-change preview, and close side effects.
+- Disable all actions while submitting.
 
 ### Result handling
 
-- 成功项从 selection 移除。
-- 失败项保持选中。
-- 显示成功/失败汇总。
-- 失败列表显示 Case ID、失败码对应的用户可读说明。
-- 不自动重试。
-- 刷新当前列表数据，但不得因刷新清除失败 selection。
+- Successful items are removed from the selection.
+- Failed items remain selected.
+- Show a success/failure summary.
+- The failure list shows Case ID and a user-readable explanation for the failure code.
+- Do not auto-retry.
+- Refresh the current list data, but do not clear failed selections because of the refresh.
 
 ## 12. Backend implementation surfaces
 
-预期涉及：
+Expected touch points:
 
-- `backend/apps/cases/services.py`：共享状态机和字段应用。
-- `backend/apps/cases/serializers.py`：bulk request/response serializer。
-- `backend/apps/cases/views.py`：collection action。
-- `backend/apps/inbox/notifications.py`：汇总 assignment notification。
-- `frontend/src/components/DataTable.tsx`：受控跨页 selection 和自定义 bulk action context。
-- Case resource 页面：Bulk Triage modal 和结果展示。
+- `backend/apps/cases/services.py`: shared state machine and field application.
+- `backend/apps/cases/serializers.py`: bulk request/response serializer.
+- `backend/apps/cases/views.py`: collection action.
+- `backend/apps/inbox/notifications.py`: aggregated assignment notification.
+- `frontend/src/components/DataTable.tsx`: controlled cross-page selection and custom bulk action context.
+- Case resource page: Bulk Triage modal and result presentation.
 
-不得把 Case 业务状态机写进通用 DataTable。
+Do not put the Case business state machine into the generic DataTable.
 
 ## 13. Acceptance criteria
 
-1. Admin/User 可对 1–100 个 Case 组合修改四个允许字段。
-2. Viewer 看不到操作并且 API 返回 403。
-3. 跨页选择保留，筛选变化清空。
-4. 非法状态转换只失败对应 Case，其他 Case 成功。
-5. Closed 必须有最终 Verdict 和 reason。
-6. Bulk close 正确追加带时间和 actor 的 Markdown Summary。
-7. Reopen 清空 closed_time/verdict，保留 acknowledged_time/Summary。
-8. assignment notification 按用户汇总。
-9. 每个成功 Case 有 source、operation_id 和 changes 审计。
-10. 请求级错误不产生任何 Case 更新。
-11. medium 数据集下 100 条同步请求可在正式验收设定的超时内完成。
+1. Admin/User can combine any of the four allowed fields across 1–100 Cases.
+2. Viewer cannot see the action and the API returns 403.
+3. Cross-page selection persists; filter changes clear it.
+4. Invalid state transitions fail only the affected Case; the others succeed.
+5. Closed requires a final Verdict and a reason.
+6. Bulk close correctly appends Markdown Summary with time and actor.
+7. Reopen clears `closed_time` and `verdict` while preserving `acknowledged_time` and Summary.
+8. Assignment notifications are aggregated per user.
+9. Every successful Case has `source`, `operation_id`, and `changes` in audit data.
+10. Request-level errors do not update any Case.
+11. On the medium dataset, a synchronous request for 100 items completes within the formal acceptance timeout.
 
 ## 14. Known tradeoffs
 
-- last-write-wins 可能覆盖并发编辑，这是已接受行为。
-- 没有服务端 idempotency，客户端网络重试可能重复追加 close note；前端必须避免自动重试 POST。
-- 部分成功使一次 operation_id 不代表全量成功；响应和逐 Case 审计是事实来源。
+- Last-write-wins may overwrite concurrent edits; this is accepted behavior.
+- There is no server-side idempotency, so client network retries may duplicate close notes; the frontend must avoid automatically retrying POST.
+- Partial success means one `operation_id` does not imply total success; the response and per-Case audit records are the source of truth.

@@ -49,6 +49,10 @@ class BasePlaybook:
     def read_prompt(self, prompt_name, language=None):
         path = self.prompt_path(prompt_name, language=language)
         if not path.exists():
+            if language != "en":
+                fallback_path = self.prompt_path(prompt_name, language="en")
+                if fallback_path.exists():
+                    return fallback_path.read_text(encoding="utf-8")
             raise FileNotFoundError(f"Custom playbook prompt not found: {path}")
         return path.read_text(encoding="utf-8")
 

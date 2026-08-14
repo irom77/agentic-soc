@@ -151,7 +151,7 @@ if [ -f .env ]; then
     docker compose down --remove-orphans
 fi
 
-rm -f .env .env.example README.md README.zh.md compose.yaml compose.override.yaml
+rm -f .env .env.example README.md compose.yaml compose.override.yaml
 rm -rf scripts custom certs logs
 cp -a "$stage_dir"/. "$deployment_dir"/
 

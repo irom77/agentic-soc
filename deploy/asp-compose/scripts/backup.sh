@@ -134,9 +134,6 @@ fi
 if [ -f README.md ]; then
     set -- "$@" README.md
 fi
-if [ -f README.zh.md ]; then
-    set -- "$@" README.zh.md
-fi
 
 tar -czf "$backup_dir/files.tar.gz" "$@"
 

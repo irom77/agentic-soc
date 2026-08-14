@@ -4,13 +4,13 @@ Status: Confirmed
 
 ## 1. Purpose
 
-保留低心智成本的 Python `run()` 编程模型，同时增加可选的 UI 可见运行消息、明确时间、崩溃恢复和只读运行历史。
+Keep the low-cognitive-load Python `run()` authoring model, while adding optional UI-visible run messages, explicit timing, crash recovery, and read-only run history.
 
-该设计不是工作流引擎，也不要求开发者拆分或声明执行阶段。
+This design is not a workflow engine and does not require developers to split or declare execution stages.
 
 ## 2. Authoring model
 
-Playbook 继续由 Python 代码定义：
+Playbooks continue to be defined in Python:
 
 ```python
 class Playbook(BasePlaybook):
@@ -31,67 +31,67 @@ class Playbook(BasePlaybook):
         return f"Contained {len(endpoints)} endpoint(s)."
 ```
 
-规则：
+Rules:
 
-- `run()` 仍是唯一执行入口。
-- `add_run_message(message)` 完全可选；现有 v0.5.2 Playbook 无需修改即可运行。
-- Run Message 只是当前 Run 的 UI 可见文本，不保存 Python 返回值或执行上下文。
-- 平台不捕获 `print()` 或 Python `logging` 输出；服务器日志与 UI 可见消息保持分离。
-- `run()` 未捕获异常导致整个 Run Failed。
-- 开发者可以捕获可容忍错误，并通过 `add_run_message()` 写入安全说明。
-- Playbook 可直接使用 `httpx` 或厂商 SDK；平台不提供通用 Connector。
+- `run()` remains the only execution entry point.
+- `add_run_message(message)` is fully optional; existing v0.5.2 Playbooks do not need changes to run.
+- A Run Message is only UI-visible text for the current Run; it does not store Python return values or execution context.
+- The platform does not capture `print()` or Python `logging` output; server logs and UI-visible messages stay separate.
+- An uncaught exception from `run()` makes the entire Run fail.
+- Developers may catch tolerable errors and write safe notes through `add_run_message()`.
+- Playbooks may call `httpx` or vendor SDKs directly; the platform does not provide a generic connector.
 
 ## 3. Explicit exclusions
 
-- 可视化/表单式编排器。
-- DAG、分支、并行 Step。
-- 中途人工审批；点击 Run 即授权整个 Playbook。
-- Pending 或 Running 取消。
-- 专用 Retry、retry lineage 或单步 resume。
-- 结构化 Stage 或执行步骤。
-- 自动捕获 `print()` 或 Python `logging`。
-- 源码、hash 或定义版本锁定。
-- 结构化 input schema。
-- HTTP/Webhook Connection profile。
-- 自动轮询或 WebSocket 进度。
+- Visual/form-based orchestrator.
+- DAGs, branches, and parallel steps.
+- Mid-run human approval; clicking Run authorizes the entire Playbook.
+- Pending or Running cancellation.
+- Dedicated Retry, retry lineage, or single-step resume.
+- Structured Stage or execution steps.
+- Automatic capture of `print()` or Python `logging`.
+- Source hashing or definition version locking.
+- Structured input schema.
+- HTTP/Webhook connection profiles.
+- Automatic polling or WebSocket progress.
 
 ## 4. Definition metadata
 
-定义扫描继续读取：
+Definition scanning continues to read:
 
 - `NAME`
 - `DESC`
 - `TAGS`
-- 新增 `RISK_LEVEL`
+- New `RISK_LEVEL`
 
-风险枚举：
+Risk levels:
 
 - Low
 - Medium
 - High
 - Critical
 
-默认 Low。风险只用于 UI 展示，不改变权限、确认或执行流程。
+Default is Low. Risk is for UI display only and does not change permissions, confirmation, or execution flow.
 
-Definition 选择界面展示当前扫描到的 metadata。Run 不保存 metadata 快照，历史列表和详情只展示 Run 已保存的 name，不解析当前定义。
+The definition selection screen shows the metadata found during the scan. The Run does not store a metadata snapshot; the history list and detail view only show the saved Run name and do not re-interpret the current definition.
 
-Pending 执行时始终加载当前最新 Python 代码。
+Pending execution always loads the latest current Python code.
 
 ## 5. Run model
 
-现有 `Playbook` 记录继续作为 Run，可考虑重命名 Python 类但不要求修改 db_table。
+The existing `Playbook` record continues to represent the Run. The Python class may be renamed, but the database table does not need to change.
 
-新增/调整字段：
+Add or adjust these fields:
 
 | Field | Type | Semantics |
 | --- | --- | --- |
 | job_status | enum | Pending/Running/Success/Failed |
-| job_id | string/UUID | 当前执行标识 |
-| started_at | nullable datetime | claim 成功时间 |
-| finished_at | nullable datetime | terminal 时间 |
-| remark | text | 终态安全摘要 |
+| job_id | string/UUID | Current execution identifier |
+| started_at | nullable datetime | Claim success time |
+| finished_at | nullable datetime | Terminal time |
+| remark | text | Safe terminal summary |
 
-保留：
+Keep:
 
 - case
 - name
@@ -108,24 +108,24 @@ Pending 执行时始终加载当前最新 Python 代码。
 | Success | none |
 | Failed | none |
 
-不允许直接修改 job_status。所有状态变化通过 domain service。
+Do not allow direct modification of `job_status`. All status changes must go through a domain service.
 
 ### Timing
 
-- Pending 创建时 started_at/finished_at 为空。
-- Pending→Running 设置 started_at。
-- Running→Success/Failed 设置 finished_at。
-- duration_seconds 由 started_at 和 finished_at 计算；Running 使用 now-started_at。
+- When a Pending Run is created, `started_at` and `finished_at` are empty.
+- Pending→Running sets `started_at`.
+- Running→Success/Failed sets `finished_at`.
+- `duration_seconds` is computed from `started_at` and `finished_at`; while Running, it uses `now - started_at`.
 
 ## 6. Run Message model
 
-建议模型 `PlaybookRunMessage`：
+Suggested model: `PlaybookRunMessage`
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | id | UUID | primary key |
-| playbook_run | FK | CASCADE at DB level, though Run API cannot delete |
-| sequence | positive bigint | per Run append order |
+| playbook_run | FK | CASCADE at DB level, though the Run API cannot delete |
+| sequence | positive bigint | append order within a Run |
 | message | text | UI-visible safe message |
 | created_at | datetime | append time |
 
@@ -133,83 +133,83 @@ Constraints/indexes:
 
 - unique `(playbook_run, sequence)`.
 - index `(playbook_run, sequence)`.
-- message 经过长度限制。
+- `message` is length-limited.
 
 ### `add_run_message()` behavior
 
-调用 `self.add_run_message(message)`：
+Calling `self.add_run_message(message)`:
 
-1. 只接受非空字符串。
-2. 对 message 执行敏感字段过滤和长度限制。
-3. 原子分配当前 Run 的下一个 sequence。
-4. 持久化消息，供 Run 详情 UI 按 sequence 展示。
+1. Accepts only a non-empty string.
+2. Applies sensitive-field filtering and length limits.
+3. Atomically assigns the next sequence for the current Run.
+4. Persists the message for display in Run detail UI in sequence order.
 
-该方法返回 `None`，不提供 level、结构化字段、进度百分比或消息更新能力。开发者应记录少量有意义的执行信息，而不是逐条输出循环数据。
+The method returns `None` and does not provide levels, structured fields, progress percentages, or message update capability. Developers should record a small number of meaningful execution events rather than emitting every loop iteration.
 
 ### Output safety
 
-- 不自动 `str()` 或 JSON serialize 任意函数输出。
-- 不自动保存 HTTP response、LLM output、SIEM records 或变量值。
-- message 由自定义代码显式提供，并视为最终用户可见内容。
-- message 使用统一 sanitizer，至少屏蔽 password/token/api_key/secret/authorization 等值。
-- API 不返回 traceback。
+- Do not automatically `str()` or JSON-serialize arbitrary function output.
+- Do not automatically save HTTP responses, LLM output, SIEM records, or variable values.
+- Messages are explicitly provided by custom code and are treated as final user-visible content.
+- Messages use a shared sanitizer that masks at least password/token/api_key/secret/authorization values.
+- The API does not return tracebacks.
 
 ## 7. Queue and Worker behavior
 
 ### Supported topology
 
-- 正式支持一个 Playbook Worker。
-- 全局 FIFO，按 created_at/id claim。
-- 不按 Case Severity 或用户优先级排序。
+- One Playbook Worker is officially supported.
+- Global FIFO, claimed by `created_at/id`.
+- Do not sort by Case Severity or user priority.
 
 ### Duplicate launch
 
-Run endpoint 不提供 idempotency。重复请求可以创建多条 Pending Run，这是已接受行为。
+The Run endpoint does not provide idempotency. Repeated requests may create multiple Pending Runs, and that is accepted behavior.
 
 ### Worker loss
 
-Playbook Worker 使用 Worker Health 心跳。检测到前一实例丢失后：
+Playbook Worker uses Worker Health heartbeats. When the previous instance is detected as lost:
 
-- 遗留 Running Run 标记 Failed。
-- remark 使用固定安全文本，说明 Worker stopped before completion。
-- 不自动重置 Pending 或重跑。
-- 用户检查后可重新发起 Run。
+- Mark any orphaned Running Runs as Failed.
+- Use a fixed safe remark stating that the Worker stopped before completion.
+- Do not automatically reset Pending or rerun.
+- After inspection, the user may start the Run again.
 
-实现可在 Worker 成功获取 singleton lease 后执行 orphan recovery。不得仅按运行时长把合法长任务判失败。
+Implementation may perform orphan recovery after the Worker successfully acquires the singleton lease. Do not mark a legitimate long-running task as failed based only on runtime duration.
 
 ## 8. Launch
 
 `POST /api/playbooks/run/`
 
-- Admin/User 可运行，Viewer 403。
-- 任何 Case 均可运行，包括 Closed。
-- Case Relationship 不影响运行 eligibility。
-- name 必须能在当前定义扫描中找到。
-- user_input 是可选自由文本。
-- 点击 Run 直接创建 Pending，不增加确认。
-- risk level 只展示。
+- Admin/User can run; Viewer receives 403.
+- Any Case can be run, including Closed Cases.
+- Case Relationships do not affect run eligibility.
+- `name` must exist in the current definition scan.
+- `user_input` is optional free text.
+- Clicking Run creates a Pending Run directly, with no extra confirmation.
+- Risk level is display only.
 
 ## 9. API shape
 
-Playbook Run 资源改为 read-only：
+The Playbook Run resource becomes read-only:
 
-- GET list。
-- GET retrieve。
-- GET definitions。
-- POST run。
-- GET messages（detail action 或独立 nested endpoint）。
+- GET list.
+- GET retrieve.
+- GET definitions.
+- POST run.
+- GET messages (detail action or a separate nested endpoint).
 
-禁止：
+Forbidden:
 
-- 普通 POST create。
-- PUT/PATCH。
-- DELETE。
+- Normal POST create.
+- PUT/PATCH.
+- DELETE.
 
-Run Message API：
+Run Message API:
 
-- 只读。
-- 必须按 sequence 分页。
-- 不得一次返回无限消息。
+- Read-only.
+- Must paginate by sequence.
+- Must not return an unlimited number of messages in one response.
 
 ### Run response additions
 
@@ -228,69 +228,33 @@ Run Message API：
 
 | Terminal state | Remark |
 | --- | --- |
-| Success | `str(run() return value)`，经长度限制和安全处理 |
-| Failed | 固定安全摘要 |
+| Success | `str(run() return value)`, after length limiting and safety filtering |
+| Failed | Fixed safe summary |
 
-Run Message 不得拼接到 remark。原始异常只进服务器日志。
+Run Messages must not be concatenated into `remark`. Raw exceptions go only to server logs.
 
 ## 11. Notifications
 
-遵循发起用户现有 `notify_on_playbook_completion` 偏好：
+Follow the initiating user’s existing `notify_on_playbook_completion` preference:
 
-- Success 通知。
-- Failed 通知。
-- Run Message 不通知。
+- Success notification.
+- Failed notification.
+- No notification for Run Messages.
 
 ## 12. Audit
 
-只记录用户动作：
+Only record user actions:
 
 - launch
 
-Worker 自动状态变化不写全局 AuditLog，因为 Run 和 Run Message 已是状态事实。
+Automatic Worker status changes are not written to the global AuditLog because the Run and Run Messages already represent the state facts.
 
-Audit metadata 不包含 user_input 全文、Run Message 或任何 Secret。
+Audit metadata must not include full `user_input`, Run Message text, or any secret.
 
 ## 13. Frontend
 
 ### Definition selection
 
-- 显示 name、description、tags、risk level。
-- 点击 Run 直接排队。
-- 保留自由文本 user_input。
-
-### Run list/detail
-
-- 状态、Case、发起人、时间和 duration。
-- Run/Run Message 无 Delete/Edit。
-- Run Message 在详情中按 sequence 分页展示。
-- 页面不自动轮询、不使用 WebSocket；提供 Refresh。
-
-## 14. Migration
-
-- 现有四状态数据直接保留。
-- 已有 Success/Failed Run 的 started_at 可为空，不伪造历史时间。
-- 旧 Running Run 在升级后由首次 Worker recovery 处理。
-- started_at、finished_at 均 nullable。
-
-## 15. Acceptance criteria
-
-1. v0.5.2 旧 Playbook 不修改即可运行。
-2. 可选 `add_run_message()` 按 sequence 保存并可在 UI 查询。
-3. Run 异常导致 Run Failed，API 不泄露 traceback。
-4. Run/Run Message 所有普通 mutation/delete 被拒绝。
-5. FIFO claim 可预测。
-6. Worker 崩溃后遗留 Running 标记 Failed且不自动重跑。
-7. Closed Case 可运行，Case Relationship 不影响运行。
-8. Success/Failed 通知符合用户偏好。
-9. Run Message 数量大时 API 正确分页。
-
-## 16. Known tradeoffs
-
-- 最新代码执行使 Pending Run 语义可能在排队期间变化。
-- 历史 Run 不展示 description、tags 或 risk level。
-- 重复 launch 可产生重复外部副作用。
-- Pending 和 Running 均不可取消。
-- Failed Run 没有专用 Retry；用户需要重新发起。
-- 频繁调用 `add_run_message()` 可能产生大量数据，开发者需自律；平台只通过分页保护读取。
-- 直接 httpx 调用的重试、幂等和 Secret 安全由自定义代码负责。
+- Show name, description, tags, and risk level.
+- Clicking Run queues immediately.
+- Keep free-text `user_input`.

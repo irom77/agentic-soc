@@ -1,7 +1,5 @@
 # ASP Docker Compose Deployment
 
-Chinese version: [README.zh.md](README.zh.md)
-
 This package deploys ASP on a single Linux host with Docker Compose.
 
 > Run every command from a deployment directory named `asp-compose`. Do not rename it, because the Docker Compose project name and named volume names would change.

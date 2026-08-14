@@ -4,27 +4,27 @@ Status: Confirmed
 
 ## 1. Release objective
 
-v0.6.0 面向单组织私有化部署，目标是让一个小型 SOC 团队完成稳定的告警分诊、案件调查、响应执行和日常运维。该版本以核心功能闭环为优先，不以 SaaS、多租户或大规模集群为目标。
+v0.6.0 is for single-organization private deployment. The goal is to let a small SOC team reliably handle alert triage, case investigation, response execution, and day-to-day operations. This release prioritizes a complete core loop; it is not targeting SaaS, multi-tenancy, or large-scale clusters.
 
 ## 2. Supported deployment
 
-- 唯一正式支持的部署拓扑是单主机 Docker Compose。
-- 不承诺 Kubernetes、横向扩容、多节点高可用或自动故障切换。
-- 每种后台 Worker 正式支持一个实例；重复实例不受支持，并会互相覆盖 Worker Health 状态。
-- 数据库降级不受支持。回滚依赖升级前备份恢复。
+- The only officially supported deployment topology is single-host Docker Compose.
+- Kubernetes, horizontal scaling, multi-node high availability, and automatic failover are not supported.
+- Each backend Worker officially supports a single instance; duplicate instances are not supported and will overwrite each other’s Worker Health state.
+- Database downgrades are not supported. Rollback depends on restoring a backup taken before upgrade.
 
 ## 3. Upgrade contract
 
-- 必须支持从 v0.5.2 直接升级到 v0.6.0。
-- 升级必须保留所有业务数据、用户、LDAP 配置、集成配置、API Key、附件和自定义脚本。
-- 所有数据库变更必须提供 Django migration。
-- migration 必须适用于已有数据，不得要求清空数据库。
-- 升级流程继续先运行 migration，再启动应用服务和 Worker。
-- 不承诺从 v0.5.1 或更早版本直接升级，也不提供 v0.6.0 到 v0.5.2 的数据库 downgrade。
+- Direct upgrade from v0.5.2 to v0.6.0 must be supported.
+- The upgrade must preserve all business data, users, LDAP configuration, integration configuration, API keys, attachments, and custom scripts.
+- All database changes must be delivered through Django migrations.
+- Migrations must work on existing data and must not require clearing the database.
+- The upgrade flow remains: run migrations first, then start application services and Workers.
+- Direct upgrade from v0.5.1 or earlier is not promised, and no database downgrade from v0.6.0 to v0.5.2 is provided.
 
 ## 4. Capacity baseline
 
-正式验收使用现有 `generate_perf_data --scale medium` 数据规模：
+Formal acceptance uses the existing `generate_perf_data --scale medium` dataset size:
 
 | Resource | Baseline |
 | --- | ---: |
@@ -38,7 +38,7 @@ v0.6.0 面向单组织私有化部署，目标是让一个小型 SOC 团队完�
 | Knowledge records | 2,000 |
 | Audit logs | 100,000 |
 
-`large` 和 `extreme` 数据档位可用于开发压测，但不属于 v0.6.0 响应时间承诺。
+The `large` and `extreme` dataset sizes may be used for development load testing, but they are not part of the v0.6.0 response-time commitment.
 
 ## 5. Official compatibility matrix
 
@@ -48,70 +48,70 @@ v0.6.0 面向单组织私有化部署，目标是让一个小型 SOC 团队完�
 | LLM | OpenAI-compatible Chat Completions endpoints |
 | Threat intelligence | AlienVault OTX, OpenCTI |
 | Authentication | Local account, LDAP |
-| Object storage | 当前 Compose 分发所配置的 S3-compatible storage |
-| Cache/stream | 当前 Compose 分发所配置的 Redis |
+| Object storage | S3-compatible storage configured by the current Compose distribution |
+| Cache/stream | Redis configured by the current Compose distribution |
 
-代码枚举或 UI 示例中出现其他厂商名称，不代表官方连接器或兼容承诺。
+Vendor names that appear in code enums or UI examples do not imply official connectors or compatibility commitments.
 
 ## 6. Roles
 
-v0.6.0 保持三个固定角色：
+v0.6.0 keeps three fixed roles:
 
 | Role | Meaning |
 | --- | --- |
-| Admin | 系统管理和全部业务写操作 |
-| User / Analyst | 分析师业务写操作 |
-| Viewer | 只读访问 |
+| Admin | System administration and all business write operations |
+| User / Analyst | Analyst business write operations |
+| Viewer | Read-only access |
 
-不实现自定义角色、权限编辑器或团队级数据隔离。每个新功能必须在自己的 Spec 中定义三种角色的具体权限。
+Custom roles, a permissions editor, and team-level data isolation are not implemented. Each new feature must define the exact permissions for the three roles in its own spec.
 
 ## 7. Language
 
-- 正式 UI 只支持英文。
-- 项目用户文档保持中英文版本，先完成中文再同步英文。
-- v0.6.0 不引入前端 i18n 框架。
+- The official UI supports English only.
+- User-facing project documentation keeps both Chinese and English versions; Chinese is written first, then English is synced afterward.
+- v0.6.0 does not introduce a frontend i18n framework.
 
 ## 8. API compatibility
 
-- v0.6.0 允许破坏性修改现有前端 API 和 `/api/agent/v1/`。
-- 不创建 Agent API v2 作为兼容层。
-- 不要求旧 CLI 或旧插件拒绝连接，也不维护其兼容性。
-- 新 API 仍应有明确的 DRF schema，避免无意的响应漂移。
+- v0.6.0 allows breaking changes to the existing frontend API and `/api/agent/v1/`.
+- Do not create Agent API v2 as a compatibility layer.
+- Do not require old CLI clients or old plugins to reject connections, and do not maintain compatibility for them.
+- The new API should still have a clear DRF schema to avoid accidental response drift.
 
 ## 9. Confirmed functional domains
 
-1. Case 批量分诊。
-2. Case Relationships。
-3. Playbook 执行可观测性和控制。
-4. Custom Variables。
-5. Worker Health。
-6. SLA 管理。
-7. AI 质量评估。
+1. Bulk Case triage.
+2. Case Relationships.
+3. Playbook execution observability and control.
+4. Custom Variables.
+5. Worker Health.
+6. SLA management.
+7. AI quality evaluation.
 
-SLA 和 AI 质量评估是 v0.6.0 正式发布的阻断项。
+SLA and AI quality evaluation are release blockers for v0.6.0.
 
 ## 10. Explicit exclusions
 
-- 多租户、组织/Workspace 隔离。
-- Kubernetes 和高可用部署。
-- OIDC、SAML 或其他 SSO。
-- 自定义角色。
-- Jira、ServiceNow 等专用连接器。
-- 可视化或表单式 Playbook 编排器。
-- Playbook 中途人工审批。
-- 通用 HTTP/Webhook Connector 或统一厂商动作抽象。
-- UI/数据库驱动的 Suppression Rules；抑制逻辑由自定义 Module Python 代码负责。
-- Integration Health 定时探测和统一状态页；保留各 Settings 页手动 Test。
-- Worker/Integration 统一 Operations Center；Worker Health 使用独立实现。
-- 全站 UI 国际化。
-- 旧 CLI/插件兼容层。
+- Multi-tenancy and organization/Workspace isolation.
+- Kubernetes and high-availability deployments.
+- OIDC, SAML, or other SSO.
+- Custom roles.
+- Dedicated connectors such as Jira or ServiceNow.
+- Visual or form-based Playbook orchestrators.
+- Mid-run human approval for Playbooks.
+- A generic HTTP/Webhook Connector or a unified vendor-action abstraction.
+- UI/database-driven Suppression Rules; suppression logic is handled by custom Module Python code.
+- Scheduled Integration Health probing and a unified status page; keep manual Test actions on each Settings page.
+- A shared Worker/Integration Operations Center; Worker Health uses a separate implementation.
+- Global UI internationalization.
+- Legacy CLI/plugin compatibility layers.
 
 ## 11. Cross-domain invariants
 
-- Case Relationship 是弱关联，不影响 Dashboard、SLA、案件数量、路由或 Case 生命周期。
-- Case 单条编辑和批量编辑必须调用同一服务端状态机。
-- Playbook、Module 和 Worker 错误不得向 API 暴露原始凭据、响应正文或 traceback。
-- Admin 管理动作按各 Spec 写 AuditLog；高频健康遥测不写 AuditLog。
-- 所有时间使用 timezone-aware UTC 存储，前端按浏览器时区显示。
-- 所有列表型 API 必须分页；动态 Stage 数量不设上限，因此 Stage API 尤其不得全量返回。
-- 业务写操作不得通过前端限制替代服务端权限和状态校验。
+- Case Relationships are weak links and do not affect the Dashboard, SLA, case counts, routing, or Case lifecycle.
+- Single-Case edits and bulk edits must call the same server-side state machine.
+- Playbook, Module, and Worker errors must not expose raw credentials, response bodies, or tracebacks through the API.
+- Admin actions are written to AuditLog according to each spec; high-frequency health telemetry is not written to AuditLog.
+- All times are stored as timezone-aware UTC and displayed in the browser’s local timezone.
+- All list APIs must paginate; dynamic Stage counts are unbounded, so the Stage API must especially avoid returning everything at once.
+- Business write operations must not rely on frontend restrictions instead of server-side permission and state checks.
