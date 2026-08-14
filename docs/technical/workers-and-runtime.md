@@ -61,7 +61,7 @@ sequenceDiagram
   participant L as LLM provider
   Q->>PG: insert Pending CaseAnalysisJob
   W->>PG: select first due Pending
-  W->>PG: lock row; status = Running
+  W->>PG: lock row, status = Running
   W->>PG: load Case and relations
   W->>L: structured keyword request
   W->>K: ORM search, maximum 10
