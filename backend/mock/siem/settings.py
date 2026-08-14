@@ -1,17 +1,17 @@
 import random
 
-# 运行参数
+# Runtime parameters
 EPS = 10
 BATCH_SIZE = 100
-MALICIOUS_PERCENTAGE = 0.05  # 5% 的日志为恶意/异常日志
+MALICIOUS_PERCENTAGE = 0.05  # 5% of logs are malicious or anomalous
 
-# 索引/来源定义
+# Index/source definitions
 NET_INDEX = "siem-network-traffic"
 HOST_INDEX = "siem-host-events"
 CLOUD_INDEX = "siem-aws-cloudtrail"
 
-# 实体池
-# --- 基础实体扩展 ---
+# Entity pool
+# --- Base entity extensions ---
 USERS = [
     "admin", "root", "system", "network-service", "guest",
     "a.wang", "b.li", "c.zhang", "d.liu", "e.chen", "j.smith", "m.garcia",
@@ -47,8 +47,8 @@ PROCESSES = [
     "crond", "syslogd", "docker-containerd", "kubelet"
 ]
 
-# 云环境实体池
-# --- 云环境实体扩展 ---
+# Cloud environment entity pool
+# --- Cloud environment entity extensions ---
 AWS_ACCOUNTS = [f"12345678{i:04d}" for i in range(1, 3)]
 
 IAM_USERS = ["admin-cli", "terraform-executor", "github-actions-role", "iam-user-01"]

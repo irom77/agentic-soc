@@ -169,14 +169,14 @@ class EnrichmentProvider(models.TextChoices):
 
 
 class Enrichment(BaseModel):
-    enrichment_id = models.CharField(max_length=32, unique=True, editable=False, db_index=True, blank=True, default="", help_text="Record ID e.g. enrichment_000001 (记录 ID e.g. enrichment_000001)")
-    name = models.CharField(max_length=255, blank=True, default="", help_text="Enrichment name (富化名称)")
-    type = models.CharField(max_length=50, choices=EnrichmentType, default=EnrichmentType.OTHER, help_text="Enrichment type (富化类型)")
-    provider = models.CharField(max_length=50, choices=EnrichmentProvider, default=EnrichmentProvider.OTHER, help_text="Enrichment provider (富化提供商)")
-    uid = models.CharField(max_length=255, blank=True, default="", db_index=True, help_text="Externally computed stable identifier for deduplication (外部计算的稳定唯一标识,用于去重)")
-    value = models.CharField(max_length=500, blank=True, default="", help_text="Enrichment value (富化值)")
-    desc = models.TextField(blank=True, default="", help_text="Enrichment summary (富化摘要)")
-    data = models.JSONField(default=dict, blank=True, help_text="Detailed enrichment JSON Format (详细富化 JSON 格式)")
+    enrichment_id = models.CharField(max_length=32, unique=True, editable=False, db_index=True, blank=True, default="", help_text="Record ID e.g. enrichment_000001")
+    name = models.CharField(max_length=255, blank=True, default="", help_text="Enrichment name")
+    type = models.CharField(max_length=50, choices=EnrichmentType, default=EnrichmentType.OTHER, help_text="Enrichment type")
+    provider = models.CharField(max_length=50, choices=EnrichmentProvider, default=EnrichmentProvider.OTHER, help_text="Enrichment provider")
+    uid = models.CharField(max_length=255, blank=True, default="", db_index=True, help_text="Externally computed stable identifier for deduplication")
+    value = models.CharField(max_length=500, blank=True, default="", help_text="Enrichment value")
+    desc = models.TextField(blank=True, default="", help_text="Enrichment summary")
+    data = models.JSONField(default=dict, blank=True, help_text="Detailed enrichment JSON Format")
 
     case = models.ForeignKey("cases.Case", on_delete=models.CASCADE, null=True, blank=True, related_name="enrichments")
     alert = models.ForeignKey("alerts.Alert", on_delete=models.CASCADE, null=True, blank=True, related_name="enrichments")

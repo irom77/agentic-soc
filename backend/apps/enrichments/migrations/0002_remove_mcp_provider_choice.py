@@ -139,7 +139,7 @@ class Migration(migrations.Migration):
                     ("MANUAL", "MANUAL"),
                 ],
                 default="Other",
-                help_text="Enrichment provider (富化提供商)",
+                help_text="Enrichment provider",
                 max_length=50,
             ),
         ),

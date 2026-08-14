@@ -15,23 +15,23 @@ class PlaybookJobStatus(models.TextChoices):
 
 
 class Playbook(BaseModel):
-    playbook_id = models.CharField(max_length=32, unique=True, editable=False, db_index=True, blank=True, default="", help_text="Record ID e.g. playbook_000001 (记录 ID e.g. playbook_000001)")
-    case = models.ForeignKey("cases.Case", on_delete=models.CASCADE, related_name="playbooks", help_text="Trigger source record ID e.g. case_000001(触发源记录 ID e.g. case_0000001)")
-    name = models.CharField(max_length=255, blank=True, default="", help_text="Executed playbook name (执行剧本名称)")
-    user_input = models.TextField(blank=True, default="", help_text="Initial or follow-up user input (初始或后续用户输入)")
+    playbook_id = models.CharField(max_length=32, unique=True, editable=False, db_index=True, blank=True, default="", help_text="Record ID e.g. playbook_000001")
+    case = models.ForeignKey("cases.Case", on_delete=models.CASCADE, related_name="playbooks", help_text="Trigger source record ID e.g. case_000001")
+    name = models.CharField(max_length=255, blank=True, default="", help_text="Executed playbook name")
+    user_input = models.TextField(blank=True, default="", help_text="Initial or follow-up user input")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name="playbooks",
-        help_text="Playbook requester (剧本请求者)",
+        help_text="Playbook requester",
     )
     job_status = models.CharField(
         max_length=20, choices=PlaybookJobStatus, blank=True, default="",
-        help_text="Background job status (后台任务状态)",
+        help_text="Background job status",
     )
-    job_id = models.CharField(max_length=255, blank=True, default="", help_text="Background job ID (后台任务 ID)")
-    started_at = models.DateTimeField(null=True, blank=True, help_text="Execution start time (执行开始时间)")
-    finished_at = models.DateTimeField(null=True, blank=True, help_text="Execution finish time (执行结束时间)")
-    remark = models.TextField(blank=True, default="", help_text="Execution remark (执行备注)")
+    job_id = models.CharField(max_length=255, blank=True, default="", help_text="Background job ID")
+    started_at = models.DateTimeField(null=True, blank=True, help_text="Execution start time")
+    finished_at = models.DateTimeField(null=True, blank=True, help_text="Execution finish time")
+    remark = models.TextField(blank=True, default="", help_text="Execution remark")
 
     class Meta:
         db_table = "playbooks"

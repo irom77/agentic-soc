@@ -1,34 +1,34 @@
-### 整体规则
+### General Rules
 
-- 除非用户明确说明,否则不允许运行superpower相关skill
-- 如 superpower:writing-plan skill禁用,则根据spec直接进行代码实现,除非用户明确要求,实现feature过程中不要生成测试代码
-- TODO.md文件是用户手动编辑的,commit时不用处理也不用额外说明.
+- Do not run superpower-related skills unless the user explicitly requests them.
+- If the `superpower:writing-plan` skill is disabled, implement directly from the specification. Do not generate test code while implementing a feature unless the user explicitly requests it.
+- `TODO.md` is edited manually by the user. Do not include it in commits or mention it separately.
 
-### 后端规则
+### Backend Rules
 
-backend 是Django实现的后端
+The backend is implemented with Django.
 
-- 后端使用uv管理依赖,python在 backend/.venv/Script/python.exe
-- 如果功能实现或者优化后,涉及数据库的改动,请确认Django ORM的数据库迁移已完成.
+- Backend dependencies are managed with `uv`. Python is located at `backend/.venv/Script/python.exe`.
+- If a feature or optimization changes the database, confirm that the Django ORM migrations have been completed.
 
-### 前端规则
+### Frontend Rules
 
-frontend 是vite + ant design实现的前端
+The frontend is implemented with Vite and Ant Design.
 
-- 如果可以尽量使用ant design 的组件特性和功能实现,如果默认组件效果实现不了或需要定制,才考虑定制化实现
-- 尽量使用Ant Design 默认的 CSS,除非用户明确说明或要求
-- 前端的所有修改都不需要执行npm build验证
+- Prefer Ant Design component features and functionality. Use custom implementations only when the default components cannot achieve the required result or customization is necessary.
+- Prefer Ant Design's default CSS unless the user explicitly requests otherwise.
+- Frontend changes do not require `npm build` verification.
 
-### 项目文档
+### Project Documentation
 
-asf-doc 是使用 vitepress 搭建的文档网站,承载项目的文档,使用独立的 github 仓库和 Cloudflare Pages
-文档更新需要先更新zh文档,zh文档定型后再更新对应的en文档.
-预先占位图片: 图片占位符不要添加任何描述,用户会根据上下文推断,图片文件名使用img.png img_1.png 这种,方便我拷贝.
-VitePress 文档修改后不主动 build，除非用户明确要求
+`asf-doc` is the project's VitePress documentation site. It uses a separate GitHub repository and Cloudflare Pages.
+Update the Chinese documentation first, then update the corresponding English documentation after the Chinese version is finalized.
+For placeholder images, do not add descriptions; the user will infer them from context. Use filenames such as `img.png` and `img_1.png` to make copying convenient.
+Do not build the VitePress documentation after changes unless the user explicitly requests it.
 
 ### marketplace
 
-asp-marketplace 有独立的 github 仓库,用于存放 ClaudeCode 插件代码.
+`asp-marketplace` has a separate GitHub repository containing the Claude Code plugin source.
 
 # AGENTS.md
 

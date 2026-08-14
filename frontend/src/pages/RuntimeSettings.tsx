@@ -94,7 +94,7 @@ export default function RuntimeSettings() {
               >
                 <Select options={[
                   { label: 'English', value: 'en' },
-                  { label: '中文', value: 'zh' },
+                  { label: 'Chinese', value: 'zh' },
                 ]} />
               </Form.Item>
             </Col>

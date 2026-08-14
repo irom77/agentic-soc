@@ -5,7 +5,7 @@ from mock.siem import settings
 
 
 class NetworkGenerator:
-    # 常见端口和协议
+    # Common ports and protocols
     PORTS_CONFIG = [
         {"port": 443, "proto": "tcp", "action": "allow", "service": "https", "weight": 35},
         {"port": 80, "proto": "tcp", "action": "allow", "service": "http", "weight": 20},
@@ -23,7 +23,7 @@ class NetworkGenerator:
         src_ip = random.choice(settings.INTERNAL_IPS)
         dst_ip = random.choice(settings.EXTERNAL_IPS)
 
-        # 数据字节数
+        # Data byte count
         bytes_in = random.randint(100, 1000000)
         bytes_out = random.randint(100, 500000)
 

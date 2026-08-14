@@ -296,11 +296,11 @@ class ArtifactRole(models.TextChoices):
 
 
 class Artifact(BaseModel):
-    artifact_id = models.CharField(max_length=32, unique=True, editable=False, db_index=True, blank=True, default="", help_text="Record ID e.g. artifact_000001 (记录 ID e.g. artifact_000001)")
-    name = models.CharField(max_length=100, choices=ArtifactName, default=ArtifactName.UNKNOWN, blank=True, help_text="Artifact name (实体名称)")
-    type = models.CharField(max_length=50, choices=ArtifactType, default=ArtifactType.UNKNOWN, help_text="Artifact type (实体类型)")
-    role = models.CharField(max_length=20, choices=ArtifactRole, default=ArtifactRole.UNKNOWN, help_text="Artifact role in event (实体在事件中的角色)")
-    value = models.CharField(max_length=500, blank=True, default="", help_text="Artifact value (实体值)")
+    artifact_id = models.CharField(max_length=32, unique=True, editable=False, db_index=True, blank=True, default="", help_text="Record ID e.g. artifact_000001")
+    name = models.CharField(max_length=100, choices=ArtifactName, default=ArtifactName.UNKNOWN, blank=True, help_text="Artifact name")
+    type = models.CharField(max_length=50, choices=ArtifactType, default=ArtifactType.UNKNOWN, help_text="Artifact type")
+    role = models.CharField(max_length=20, choices=ArtifactRole, default=ArtifactRole.UNKNOWN, help_text="Artifact role in event")
+    value = models.CharField(max_length=500, blank=True, default="", help_text="Artifact value")
 
     class Meta:
         db_table = "artifacts"

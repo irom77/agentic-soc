@@ -1,6 +1,6 @@
 name: siem-aws-cloudtrail
 backend: ELK
-description: AWS CloudTrail 日志索引，包含 API 调用事件、身份信息、请求参数及响应元素，用于云环境安全审计与威胁调查。
+description: AWS CloudTrail log index containing API call events, identity information, request parameters, and response elements for cloud security auditing and threat investigation.
 
 fields:
   # === Core Timestamp Fields ===

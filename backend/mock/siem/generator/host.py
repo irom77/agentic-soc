@@ -6,7 +6,7 @@ from mock.siem import settings
 
 
 class HostGenerator:
-    # 常见进程动作
+    # Common process actions
     PROCESS_ACTIONS = [
         {"action": "process_created", "weight": 50},
         {"action": "process_terminated", "weight": 20},

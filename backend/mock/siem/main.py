@@ -18,7 +18,7 @@ from mock.siem.scenarios.host import RansomwareScenario
 from mock.siem.scenarios.network import BruteForceScenario
 
 
-# --- 发送器类 (同步版本) ---
+# --- Sender class (synchronous version) ---
 class ELKSender:
     def __init__(self):
         self.url = f"{config.ELK_HOST}/_bulk"
@@ -56,7 +56,7 @@ class SplunkSender:
                 raise Exception(f"Splunk Error: {resp.text}")
 
 
-# --- 核心引擎 ---
+# --- Core engine ---
 def run_engine(generators, senders, scenario_mapping=None):
     """
     generators: dict { index_name: generator_instance }
@@ -67,16 +67,16 @@ def run_engine(generators, senders, scenario_mapping=None):
 
     while True:
         for index_name, gen in generators.items():
-            # 1. 生成基础批次
+            # 1. Generate the base batch
             batch = [gen.generate() for _ in range(settings.BATCH_SIZE)]
 
-            # 2. 注入对应索引的异常场景
+            # 2. Inject anomaly scenarios for the corresponding index
             if scenario_mapping and index_name in scenario_mapping and random.random() < settings.MALICIOUS_PERCENTAGE:
                 scenario_class = random.choice(scenario_mapping[index_name])
                 scenario_instance = scenario_class()
                 batch.extend(scenario_instance.get_logs())
 
-            # 3. 同步发送到所有目标（带重试）
+            # 3. Send synchronously to all targets (with retries)
             for attempt in range(3):
                 try:
                     for s in senders:
@@ -89,7 +89,7 @@ def run_engine(generators, senders, scenario_mapping=None):
             else:
                 print(f"[ERROR] Send failed after 3 attempts, skipping batch for {index_name}.")
 
-        # 控制频率 (简单 Sleep)
+        # Control the rate (simple sleep)
         time.sleep(settings.BATCH_SIZE / settings.EPS)
 
 

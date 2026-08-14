@@ -22,7 +22,7 @@ class CloudPrivilegeEscalationScenario(object):
 
         base_time = datetime.utcnow()
 
-        # 1. 权限侦查 - GetUser 检查目标权限
+        # 1. Permission reconnaissance - use GetUser to inspect target permissions
         for i in range(3):
             logs.append({
                 "@timestamp": (base_time + timedelta(seconds=i * 2)).isoformat() + "Z",
@@ -64,7 +64,7 @@ class CloudPrivilegeEscalationScenario(object):
                 "message": f"Reconnaissance: GetUser call for {self.attacker_user}"
             })
 
-        # 2. 权限不足错误 - 检查是否有IAMFullAccess (失败的先)
+        # 2. Insufficient-permission error - check for IAMFullAccess (failed attempt first)
         logs.append({
             "@timestamp": (base_time + timedelta(seconds=10)).isoformat() + "Z",
             "event.dataset": "aws.cloudtrail",
@@ -106,7 +106,7 @@ class CloudPrivilegeEscalationScenario(object):
             "message": f"Privilege escalation attempt failed - AccessDenied on AttachUserPolicy"
         })
 
-        # 3. 尝试GetAccountAuthorizationDetails探测更多权限信息
+        # 3. Try GetAccountAuthorizationDetails to discover additional permission information
         logs.append({
             "@timestamp": (base_time + timedelta(seconds=15)).isoformat() + "Z",
             "event.dataset": "aws.cloudtrail",
@@ -145,7 +145,7 @@ class CloudPrivilegeEscalationScenario(object):
             "message": "Permission enumeration attempt - GetAccountAuthorizationDetails denied"
         })
 
-        # 4. 创建新用户 (后门账户)
+        # 4. Create a new user (backdoor account)
         logs.append({
             "@timestamp": (base_time + timedelta(seconds=25)).isoformat() + "Z",
             "event.dataset": "aws.cloudtrail",
@@ -193,7 +193,7 @@ class CloudPrivilegeEscalationScenario(object):
             "message": f"New IAM user created: {self.malicious_new_user}"
         })
 
-        # 5. 为新用户创建访问密钥
+        # 5. Create an access key for the new user
         logs.append({
             "@timestamp": (base_time + timedelta(seconds=28)).isoformat() + "Z",
             "event.dataset": "aws.cloudtrail",
@@ -239,7 +239,7 @@ class CloudPrivilegeEscalationScenario(object):
             "message": f"Access key created for user: {self.malicious_new_user}"
         })
 
-        # 6. 附加高危策略 (提权) - 同一目标生成两条高危告警，用于测试 Alert 聚合到同一个 Case
+        # 6. Attach a high-risk policy (privilege escalation) - generate two high-risk alerts for the same target to test aggregation into one Case
         logs.append({
             "@timestamp": (base_time + timedelta(seconds=35)).isoformat() + "Z",
             "event.dataset": "aws.cloudtrail",
@@ -322,7 +322,7 @@ class CloudPrivilegeEscalationScenario(object):
             "message": f"IAM full access policy attached to user {self.malicious_new_user} - PRIVILEGE ESCALATION"
         })
 
-        # 7. AssumeRole 获取临时凭证 (使用新创建的用户)
+        # 7. Use AssumeRole to obtain temporary credentials (with the newly created user)
         logs.append({
             "@timestamp": (base_time + timedelta(seconds=45)).isoformat() + "Z",
             "event.dataset": "aws.cloudtrail",

@@ -11,19 +11,19 @@ class KnowledgeSource(models.TextChoices):
 
 
 class Knowledge(BaseModel):
-    knowledge_id = models.CharField(max_length=32, unique=True, editable=False, db_index=True, blank=True, default="", help_text="Record ID e.g. knowledge_000001 (记录 ID e.g. knowledge_000001)")
-    title = models.CharField(max_length=500, blank=True, default="", help_text="Knowledge title (知识标题)")
-    body = models.TextField(blank=True, default="", help_text="Knowledge content (知识内容)")
-    expires_at = models.DateTimeField(null=True, blank=True, help_text="Knowledge expiration time; empty means permanently valid (知识过期时间，空表示永久有效)")
-    source = models.CharField(max_length=20, choices=KnowledgeSource, blank=True, default="", help_text="Knowledge source (知识来源)")
-    tags = models.JSONField(default=list, blank=True, help_text="Knowledge tags (知识标签)")
+    knowledge_id = models.CharField(max_length=32, unique=True, editable=False, db_index=True, blank=True, default="", help_text="Record ID e.g. knowledge_000001")
+    title = models.CharField(max_length=500, blank=True, default="", help_text="Knowledge title")
+    body = models.TextField(blank=True, default="", help_text="Knowledge content")
+    expires_at = models.DateTimeField(null=True, blank=True, help_text="Knowledge expiration time; empty means permanently valid")
+    source = models.CharField(max_length=20, choices=KnowledgeSource, blank=True, default="", help_text="Knowledge source")
+    tags = models.JSONField(default=list, blank=True, help_text="Knowledge tags")
     case = models.OneToOneField(
         "cases.Case",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="extracted_knowledge",
-        help_text="Case this Knowledge was extracted from; empty for manual Knowledge (知识提取来源 Case, 手动知识为空)",
+        help_text="Case this Knowledge was extracted from; empty for manual Knowledge",
     )
 
     class Meta:

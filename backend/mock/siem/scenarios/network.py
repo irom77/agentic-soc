@@ -9,12 +9,12 @@ class BruteForceScenario(object):
     def __init__(self, target_user=None):
         self.target_user = target_user or random.choice(settings.USERS)
         self.target_host = random.choice(settings.HOSTS)
-        self.attacker_ip = "45.95.11.22"  # 模拟黑客常用 IP
+        self.attacker_ip = "45.95.11.22"  # IP commonly used by simulated attackers
         self.session_id = str(uuid.uuid4())
 
     def get_logs(self) -> list:
         logs = []
-        # 1. 模拟 5-10 次失败登录
+        # 1. Simulate 5-10 failed logins
         fail_count = random.randint(5, 10)
         for attempt in range(fail_count):
             logs.append({
@@ -53,7 +53,7 @@ class BruteForceScenario(object):
                 "message": f"Failed login attempt {attempt + 1}/{fail_count} for user {self.target_user}"
             })
 
-        # 2. 紧接着一次成功登录 (触发告警的关键点)
+        # 2. Immediately follow with one successful login (the key alert trigger)
         logs.append({
             "@timestamp": datetime.utcnow().isoformat() + "Z",
             "event.dataset": "host",

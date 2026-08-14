@@ -15,12 +15,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='playbook',
             name='finished_at',
-            field=models.DateTimeField(blank=True, help_text='Execution finish time (执行结束时间)', null=True),
+            field=models.DateTimeField(blank=True, help_text='Execution finish time', null=True),
         ),
         migrations.AddField(
             model_name='playbook',
             name='started_at',
-            field=models.DateTimeField(blank=True, help_text='Execution start time (执行开始时间)', null=True),
+            field=models.DateTimeField(blank=True, help_text='Execution start time', null=True),
         ),
         migrations.CreateModel(
             name='PlaybookRunMessage',

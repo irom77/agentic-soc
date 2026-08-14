@@ -273,18 +273,7 @@ def check_generated_block(
 
 def deployment_block(manifest: Manifest, lang: str) -> str:
     url = project_release_url(manifest)
-    if lang == "zh":
-        body = f"""- GitHub Releases 页面：[https://github.com/{PROJECT_REPOSITORY}/releases](https://github.com/{PROJECT_REPOSITORY}/releases)
-- 最新版本发布包：`{manifest.archive_name}`
-
-```bash
-curl -fL -o {manifest.archive_name} {url} &&
-tar -xzf {manifest.archive_name} &&
-rm {manifest.archive_name} &&
-cd asp-compose
-```"""
-    else:
-        body = f"""- GitHub Releases: [https://github.com/{PROJECT_REPOSITORY}/releases](https://github.com/{PROJECT_REPOSITORY}/releases)
+    body = f"""- GitHub Releases: [https://github.com/{PROJECT_REPOSITORY}/releases](https://github.com/{PROJECT_REPOSITORY}/releases)
 - Latest release package: `{manifest.archive_name}`
 
 ```bash
@@ -297,7 +286,7 @@ cd asp-compose
 
 
 def bootstrap_deployment(lang: str) -> Callable[[str, str], str]:
-    heading = "## 1. 下载发布包" if lang == "zh" else "## 1. Download the package"
+    heading = "## 1. Download the package"
 
     def bootstrap(text: str, expected: str) -> str:
         heading_index = text.find(heading)
@@ -379,8 +368,7 @@ def bootstrap_upgrade(text: str, expected: str) -> str:
         r"ASP_BACKEND_IMAGE=ghcr\.io/funnywolf/agentic-soc-platform/asp-backend:<version>\n"
         r"ASP_FRONTEND_IMAGE=ghcr\.io/funnywolf/agentic-soc-platform/asp-frontend:<version>\n"
         r"```\n\n"
-        r"(?:`<version>` 使用目标 Release 的版本号，例如 `[^`]+`。|"
-        r"Use the target Release version for `<version>`, for example `[^`]+`\.)",
+        r"Use the target Release version for `<version>`, for example `[^`]+`\.",
         re.MULTILINE,
     )
     new_text, count = pattern.subn(expected, text, count=1)
@@ -421,24 +409,14 @@ def check_quickstart_upgrade_docs(manifest: Manifest, failures: list[str]) -> No
 
 
 def release_page_skeleton(manifest: Manifest, lang: str) -> str:
-    if lang == "zh":
-        sections = [
-            "新功能",
-            "优化",
-            "修复",
-            "部署和发布工程",
-            "升级说明",
-            "开发者笔记",
-        ]
-    else:
-        sections = [
-            "New Features",
-            "Improvements",
-            "Fixes",
-            "Deployment and Release Engineering",
-            "Upgrade Notes",
-            "Developer Notes",
-        ]
+    sections = [
+        "New Features",
+        "Improvements",
+        "Fixes",
+        "Deployment and Release Engineering",
+        "Upgrade Notes",
+        "Developer Notes",
+    ]
     headings = "\n\n".join(f"## {section}\n" for section in sections)
     return f"# {manifest.version} - {manifest.title}\n\n{headings}\n"
 
@@ -501,7 +479,7 @@ def prepare_vitepress_nav(manifest: Manifest) -> None:
         "zh": ASP_DOC_PATH / "docs" / ".vitepress" / "config" / "zh.ts",
         "en": ASP_DOC_PATH / "docs" / ".vitepress" / "config" / "en.ts",
     }
-    labels = {"zh": 'text: "更新日志"', "en": 'text: "Changelog"'}
+    labels = {"zh": 'text: "Changelog"', "en": 'text: "Changelog"'}
     for lang, path in paths.items():
         text = read_text(path)
         expected = nav_item(manifest, lang)

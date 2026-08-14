@@ -18,7 +18,7 @@ class RansomwareScenario(object):
         logs = []
         base_path = f"C:\\Users\\{self.target_user}\\Documents\\"
 
-        # 1. 模拟删除卷影副本 (Shadow Copy) - 典型的勒索预兆
+        # 1. Simulate deleting shadow copies (Shadow Copy) - a typical ransomware precursor
         logs.append({
             "@timestamp": datetime.utcnow().isoformat() + "Z",
             "event.dataset": "host",
@@ -47,7 +47,7 @@ class RansomwareScenario(object):
             "message": "Shadow Copy deletion detected - ransomware indicator"
         })
 
-        # 2. 批量生成文件重命名日志 (模拟加密过程)
+        # 2. Generate file-renaming logs in bulk (simulate encryption)
         extensions = [".docx", ".pdf", ".jpg", ".xlsx", ".ppt", ".xls"]
         for i in range(20):
             original_file = f"finance_data_{i}{random.choice(extensions)}"
@@ -84,7 +84,7 @@ class RansomwareScenario(object):
                 "message": f"File encrypted by {self.malware_proc}: {original_file}"
             })
 
-        # 3. 留下勒索说明文件
+        # 3. Leave a ransom-note file
         logs.append({
             "@timestamp": datetime.utcnow().isoformat() + "Z",
             "event.dataset": "host",
