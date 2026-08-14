@@ -23,6 +23,23 @@
 
 **Agentic SOC Platform** is an open-source security operations platform built on Agentic AI, enabling agents to proactively participate in triage, investigation, enrichment, and knowledge accumulation so security teams can move from alert fatigue to AI-assisted decision-making.
 
+### Local Development
+
+Run these commands from the repository root:
+
+```bash
+./start.sh    # Start ASP and its development services
+./stop.sh     # Stop ASP while preserving database volumes
+./restart.sh  # Restart ASP and its development services
+./test.sh     # Run the backend Django test suite
+```
+
+Pass a Django test label to run a specific test module, class, or method:
+
+```bash
+./test.sh apps.enrichments.tests
+```
+
 ---
 
 ### Alert Floods, Converged into Actionable Cases
