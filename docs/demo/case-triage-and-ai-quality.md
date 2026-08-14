@@ -428,24 +428,65 @@ At the presentation cue, run from `backend`:
 uv run python manage.py queue_live_otx_enrichment_demo
 ```
 
-This creates a Pending **Threat Intelligence Enrichment** playbook run. The playbook worker then:
+This creates a Pending **Threat Intelligence Enrichment** playbook run. It does not run an LLM and it does not make the OTX request inside the management command.
+
+#### How the playbook is built
+
+ASP playbooks are Python classes discovered from `backend/playbooks/*.py` and `backend/custom/playbooks/*.py`. A custom file with the same filename overrides the built-in file. Each definition must contain a `Playbook` class derived from `BasePlaybook`; its class attributes supply the catalog metadata and its `run()` method implements the work.
+
+The built-in definition used here is `backend/playbooks/threat_intelligence_enrichment.py`:
+
+| Definition element | Value or responsibility |
+| --- | --- |
+| `NAME` | `Threat Intelligence Enrichment`; this exact name connects the queued database run to the discovered class |
+| `DESC` | Explains that the playbook queries threat intelligence for all Artifacts linked to the Case |
+| `TAGS` | Marks it as a System, Threat Intel, and Enrichment playbook |
+| `RISK_LEVEL` | Inherits the `Low` default from `BasePlaybook` |
+| `run()` | Collects Case Artifacts, queries enabled providers, saves normalized Enrichments, and returns the summary used as the run remark |
+
+The demo command first validates that the scoped Case exists and that OTX is both enabled and configured with an API key. It then calls `create_pending_playbook_run(...)`. That service verifies that the playbook name exists in the discovered catalog and writes a Case-linked `Playbook` record with status `Pending`, requester `demo.admin`, and the demo input. This database record is the durable work queue and audit record.
+
+#### What happens during execution
+
+The separately running `run_agentic_playbook_worker` process polls for the oldest Pending run. It claims one row transactionally, changes it to `Running`, assigns a job UUID and start time, loads the class whose `NAME` matches the run, and calls `run()` with the Case and run context.
+
+The Threat Intelligence Enrichment implementation then:
 
 ```text
-Case → Alert → three unique Artifacts
-→ AlienVault OTX HTTPS API lookup for each supported indicator
-→ normalized provider results
-→ Artifact-level Enrichment records saved in ASP
+Case
+→ visit every linked Alert
+→ collect and deduplicate Artifacts by database ID
+→ select every enabled threat-intelligence provider
+→ validate each Artifact type and value for that provider
+→ make one provider lookup per supported Artifact
+→ normalize provider-specific data into a common result
+→ create or update one Artifact-level Enrichment per provider and Artifact
+→ save completion counters in the Playbook remark
 ```
 
-The command itself does not call OTX. The observable external calls occur when the worker changes the playbook from Pending to Running. OTX is queried independently for each Artifact; an unsupported or unsuccessful lookup does not fabricate an Enrichment record.
+For OTX, supported indicators are IPv4 addresses, URL strings, and MD5/SHA-1/SHA-256 hashes. The provider maps them to the corresponding OTX `/indicators/.../general` endpoint and authenticates with the configured API key. It converts the response into common fields such as risk level, malicious assessment, reputation score, pulse summaries, tags, ATT&CK techniques, malware families, adversaries, industries, and network context.
+
+The command itself does not call OTX. The observable external calls occur after the worker changes the playbook from Pending to Running. OTX is queried independently for each Artifact; an unsupported or unsuccessful lookup does not fabricate an Enrichment record. The hostname `example.com` is unsupported by this OTX adapter because a hostname is not treated as a URL, which explains the demonstrated `unsupported=1` count.
+
+Each saved record is linked to the Artifact rather than directly to the Case. Its stable UID has the form `ti:<provider>:<artifact readable ID>`. Rerunning the playbook creates a new auditable Playbook run but updates the existing provider/Artifact Enrichment instead of duplicating it. On normal completion the worker changes the run to `Success`, records its finish time and summary remark, and sends the configured completion notification. An unhandled exception instead changes the run to `Failed` without exposing provider secrets in the visible remark.
 
 ### D. Prove and inspect the enrichment
 
 1. Refresh the Case **Playbooks** tab until the run is `Success`.
 2. Open the run and read its remark. It reports Alerts visited, Artifact references, unique Artifacts, successful enrichments, unsupported results, and errors.
-3. Return through **Alerts → the Alert → Artifacts**.
-4. Open each Artifact's **Enrichments** tab. Successful results now show provider `AlienVaultOTX`, type `Threat Intelligence`, the indicator value, and OTX's normalized assessment.
-5. Open an Enrichment record to inspect the saved details. The database also retains normalized structured data such as pulse summaries, tags, attack techniques, related malware or adversaries, network context, reputation, and provider errors when supplied by OTX.
+
+   ![](./img_22.png)
+
+   The screenshot contains two successful rows because the live demonstration was run twice. This is expected: every invocation produces a separate Playbook audit record. Both runs target the same Case and execute the same discovered definition.
+
+3. Open the Case **Enrichments** tab to see the Alert- and Artifact-level results collected under the Case. Successful results show provider `AlienVaultOTX`, type `Threat Intelligence`, and the indicator value.
+
+   ![](./img_23.png)
+
+   The two rows are attached to the IP and hash Artifacts. The Case tab includes them through `Case → Alert → Artifact → Enrichment`; they are not duplicate Case-level records.
+
+4. Return through **Alerts → the Alert → Artifacts**, open each supported Artifact, and inspect its **Enrichments** tab to demonstrate the direct database relationship.
+5. Open an Enrichment record to inspect the saved details. The database also retains normalized structured data such as pulse summaries, tags, attack techniques, related malware or adversaries, network context, and reputation when supplied by OTX.
 
 Use this command to show the live run and record count without exposing the API key:
 
