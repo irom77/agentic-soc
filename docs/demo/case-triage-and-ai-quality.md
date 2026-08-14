@@ -11,7 +11,7 @@
 | Per-Case AI–Human Agreement | Not implemented yet | Seed data is prepared for it, but no comparison component exists |
 | Global AI Quality | Not implemented yet | Seed data is prepared for it, but there is no System Settings tab |
 
-Do not present planned features as clickable functionality. The runnable presentation on this branch is Parts 1–3 below. Part 4 is a preview of the prepared future dataset.
+Do not present planned features as clickable functionality. The runnable presentation on this branch is Parts 1–4 below. Part 5 is a preview of the prepared future dataset.
 
 ## Part 1: Start and verify the demo
 
@@ -23,14 +23,14 @@ Do not present planned features as clickable functionality. The runnable present
 
    This starts PostgreSQL, Redis, RustFS, the backend, the frontend, and the Case analysis worker. Runtime logs are under `.asp-runtime/`.
 
-2. Refresh the deterministic dataset and add one Case for a real LLM run:
+2. Refresh the deterministic dataset and add both Cases for real LLM runs:
 
    ```bash
    cd backend
-   uv run python manage.py seed_case_triage_demo --include-live-llm
+   uv run python manage.py seed_case_triage_demo --include-live-llm --include-complex-live-llm
    ```
 
-   This creates 26 Cases: 18 triage, 7 closed quality examples, and 1 unprocessed live-LLM Case. It does not queue or invoke the LLM yet.
+   This creates 27 Cases: 18 triage, 7 closed quality examples, and 2 unprocessed live-LLM Cases. It does not queue or invoke the LLM yet.
 
 3. Browse to `http://localhost:5173` and choose the **Platform** login method.
 
@@ -164,7 +164,76 @@ tail -n 100 ../.asp-runtime/case-analysis-worker.log
 
 After correcting the provider, rerun `seed_case_triage_demo --include-live-llm` to recreate the empty Case, then run `queue_live_llm_case_demo` at the presentation cue. Failed jobs are retained as evidence and are not automatically retried.
 
-## Part 4: Preview the prepared AI Quality dataset
+## Part 4: Demonstrate artifact enrichment in a complex investigation
+
+This example is independent of the simple Case in Part 3. It demonstrates that the LLM receives structured related evidence, not just assertions copied into the Case description.
+
+### A. Show the enriched evidence before analysis
+
+1. Search Cases for `[DEMO COMPLEX LLM]` and open **Correlated identity and endpoint activity**.
+2. Open its **Investigation** tab and confirm **No data**. The seed created no analysis job and made no LLM call.
+3. Inspect the related records before queueing. The Case contains two temporally correlated Alerts:
+
+   - An allowed interactive sign-in by `svc-finance-automation` from `198.51.100.42` followed by privileged-role enumeration.
+   - Eight minutes later, encoded PowerShell launched under the same account on `fin-app-07.corp.example`.
+
+4. Open the artifacts/enrichments visible from the Case and Alerts. Point out:
+
+   - Source IP reputation: recent credential-stuffing activity with high confidence.
+   - Identity context: a non-interactive finance service account with no approved interactive sign-ins.
+   - CMDB context: the affected host is a High-criticality production finance server.
+   - Process-tree review: no matching approved deployment, while outbound network telemetry remains unavailable.
+
+All domains and IP addresses are documentation-only examples. They are not live threat indicators.
+
+### B. Queue the enriched Case
+
+At the presentation cue, run from `backend`:
+
+```bash
+uv run python manage.py queue_complex_llm_case_demo
+```
+
+Refresh Investigation after the worker finishes. Walk through how the report joins the identity event, endpoint event, shared account artifact, IP reputation, identity policy, and asset criticality into one timeline and set of evidence findings.
+
+### C. Explain exactly what the LLM received
+
+The serializer builds this nested structure at run time:
+
+```text
+Case
+├── Alert: unfamiliar service-account sign-in
+│   ├── Artifact: source IP
+│   │   └── Enrichment: threat-intelligence reputation
+│   └── Artifact: service account
+│       └── Enrichment: identity directory context
+└── Alert: encoded PowerShell
+    ├── Artifact: same service account (and its identity enrichment)
+    ├── Artifact: finance application host
+    │   └── Enrichment: CMDB asset context
+    ├── Artifact: redacted command line
+    └── Enrichment: EDR process-tree review
+```
+
+The investigation profile sends the Alerts' descriptive and detection fields; each artifact's name, type, role, and value; and each enrichment's name, type, provider, value, and description. The enrichment `data` JSON is retained in the product database but is not part of the current investigation profile, so do not claim the LLM saw fields such as the numeric risk score.
+
+### D. Discuss evidence, inference, and expected judgment
+
+The strongest supplied evidence is the sequence and correlation: an account whose directory context disallows interactive use performs an unusual allowed sign-in, then the same account runs encoded PowerShell on a critical production host without an approved change. The reputation enrichment strengthens the source-IP signal. This gives the model substantially more grounded evidence than Part 3.
+
+The report is still a recommendation, and its exact values are not predetermined. A model may reasonably choose True Positive with High confidence, but it must not claim that payload execution, persistence, data theft, or command-and-control succeeded. Outbound telemetry is explicitly unavailable, and the command payload is redacted. Those belong in **Unknowns** and follow-up recommendations.
+
+Suggested narration:
+
+> Here the model is not relying on a prose-only Case summary. It correlates two Alerts through a shared account and interprets artifact enrichments from threat intelligence, the identity directory, CMDB, and EDR review. The evidence strongly supports unauthorized activity, while the missing network telemetry and redacted payload limit claims about the incident's full impact.
+
+To prove this run was live:
+
+```bash
+uv run python manage.py shell -c "from apps.agentic.models import CaseAnalysisJob; j=CaseAnalysisJob.objects.filter(trigger='demo_complex_live_llm').latest('created_at'); print(j.status, j.started_at, j.completed_at, j.error)"
+```
+
+## Part 5: Preview the prepared AI Quality dataset
 
 Search for `[DEMO QUALITY]`. These seven Closed Cases make future AI quality behavior concrete even though the evaluator and UI are not implemented:
 

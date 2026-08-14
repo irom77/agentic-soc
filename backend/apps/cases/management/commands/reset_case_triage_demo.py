@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.cases.models import Case
+from apps.artifacts.models import Artifact
 
 
 DEMO_CORRELATION_PREFIX = "DEMO-CASE-TRIAGE-"
@@ -26,5 +27,9 @@ class Command(BaseCommand):
                 f"{DEMO_CORRELATION_PREFIX!r} are in scope."
             )
 
+        artifact_ids = list(
+            Artifact.objects.filter(alerts__case__in=cases).values_list("id", flat=True).distinct()
+        )
         cases.delete()
+        Artifact.objects.filter(id__in=artifact_ids, alerts__isnull=True).delete()
         self.stdout.write(self.style.SUCCESS(f"Deleted {count} demo Case(s)."))

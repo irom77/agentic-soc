@@ -16,7 +16,7 @@ Start with [Setup and reset](setup-and-reset.md), then follow [Case triage, live
 | Per-Case AI–Human Agreement | Not implemented |
 | Global AI Quality page and evaluation lifecycle | Not implemented |
 
-The default seed creates 25 Cases and never schedules an external LLM call. Add `--include-live-llm` to create a 26th unprocessed Case. Its Investigation tab initially shows **No data**. Run `queue_live_llm_case_demo` when ready; the Case analysis worker then calls the enabled `structured_output` provider and saves the report shown by the tab.
+The default seed creates 25 Cases and never schedules an external LLM call. Add `--include-live-llm` for the simple text-only investigation, `--include-complex-live-llm` for an enriched investigation, or both. Each added Case initially shows **No data** in Investigation. Its matching queue command starts the real LLM run.
 
 ## Dataset at a glance
 
@@ -25,6 +25,7 @@ The default seed creates 25 Cases and never schedules an external LLM call. Add 
 | `[DEMO TRIAGE]` | 18 | Current Case queue and individual triage; future Bulk Triage |
 | `[DEMO QUALITY]` | 7 | Seeded Investigation reports and future AI–Human Agreement evaluation |
 | `[DEMO LIVE LLM]` | 0 or 1 | Real LLM investigation, included only with `--include-live-llm` |
+| `[DEMO COMPLEX LLM]` | 0 or 1 | Correlated Alerts, artifacts, and enrichments, included only with `--include-complex-live-llm` |
 
 The command creates or refreshes three local-only users:
 

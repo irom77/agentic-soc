@@ -72,13 +72,21 @@ uv run python manage.py seed_case_triage_demo --include-live-llm
 
 Expected count: 26 Cases. The additional `[DEMO LIVE LLM]` Case has no analysis job or report yet. This gives the presenter time to show its Investigation tab displaying **No data**.
 
+For the enriched investigation with related Alerts and artifact context:
+
+```bash
+uv run python manage.py seed_case_triage_demo --include-complex-live-llm
+```
+
+Expected count: 26 Cases. To prepare both live examples at once, pass both flags; the expected count is 27.
+
 Both forms replace the previous scoped dataset. To leave an existing dataset unchanged:
 
 ```bash
 uv run python manage.py seed_case_triage_demo --no-reset
 ```
 
-Do not combine `--no-reset` with `--include-live-llm` when the dataset already exists: no new Case will be added.
+Do not combine `--no-reset` with either live option when the dataset already exists: no new Case will be added.
 
 ## 6. Verify the seed, then queue the live run
 
@@ -103,6 +111,12 @@ uv run python manage.py queue_live_llm_case_demo
 ```
 
 The worker transitions the new job through Pending → Running → Success. Refresh the Investigation tab after a few seconds to show the generated report.
+
+For the enriched Case, use:
+
+```bash
+uv run python manage.py queue_complex_llm_case_demo
+```
 
 ## 7. Reset safely
 

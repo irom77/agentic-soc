@@ -8,6 +8,19 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.agentic.models import AgenticJobStatus, CaseAnalysisJob
+from apps.alerts.models import (
+    Alert,
+    AlertAction,
+    AlertAnalyticState,
+    AlertAnalyticType,
+    AlertRiskLevel,
+    AlertStatus,
+    Confidence,
+    Impact,
+    ProductCategory,
+    Severity,
+)
+from apps.artifacts.models import Artifact, ArtifactName, ArtifactRole, ArtifactType
 from apps.cases.models import (
     Case,
     CaseCategory,
@@ -18,12 +31,137 @@ from apps.cases.models import (
     CaseStatus,
     CaseVerdict,
 )
+from apps.enrichments.models import Enrichment, EnrichmentProvider, EnrichmentType
 
 from .reset_case_triage_demo import DEMO_CORRELATION_PREFIX
 
 
 DEMO_TAG = "case-triage-demo"
 DEMO_PASSWORD = "demopass"
+
+
+def create_complex_live_llm_context(case, now):
+    source_ip = Artifact.objects.create(
+        name=ArtifactName.SOURCE_IP,
+        type=ArtifactType.IP_ADDRESS,
+        role=ArtifactRole.ACTOR,
+        value="198.51.100.42",
+    )
+    account = Artifact.objects.create(
+        name=ArtifactName.ACCOUNT_NAME,
+        type=ArtifactType.ACCOUNT,
+        role=ArtifactRole.AFFECTED,
+        value="svc-finance-automation",
+    )
+    host = Artifact.objects.create(
+        name=ArtifactName.HOSTNAME,
+        type=ArtifactType.HOSTNAME,
+        role=ArtifactRole.AFFECTED,
+        value="fin-app-07.corp.example",
+    )
+    command = Artifact.objects.create(
+        name=ArtifactName.PROCESS_COMMAND_LINE,
+        type=ArtifactType.COMMAND_LINE,
+        role=ArtifactRole.RELATED,
+        value="powershell.exe -enc <redacted-demo-payload>",
+    )
+
+    identity_alert = Alert.objects.create(
+        case=case,
+        title="Service account sign-in from an unfamiliar network",
+        severity=Severity.HIGH,
+        confidence=Confidence.HIGH,
+        impact=Impact.HIGH,
+        action=AlertAction.ALLOWED,
+        labels=["identity", "service-account", "new-country"],
+        desc=(
+            "The finance automation account authenticated without its normal workload identity and "
+            "enumerated privileged role assignments. MFA is not configured for this non-interactive account."
+        ),
+        first_seen_time=now - timedelta(minutes=18),
+        last_seen_time=now - timedelta(minutes=15),
+        rule_id="DEMO-IAM-1042",
+        rule_name="Unusual service-account interactive sign-in",
+        analytic_name="Identity behavior analytics",
+        analytic_type=AlertAnalyticType.BEHAVIORAL,
+        analytic_state=AlertAnalyticState.ACTIVE,
+        product_category=ProductCategory.IAM,
+        product_vendor="Demo Identity Cloud",
+        product_name="Demo Identity Protection",
+        risk_level=AlertRiskLevel.HIGH,
+        status=AlertStatus.NEW,
+        correlation_uid=case.correlation_uid,
+    )
+    identity_alert.artifacts.add(source_ip, account)
+
+    endpoint_alert = Alert.objects.create(
+        case=case,
+        title="Encoded PowerShell launched on finance application server",
+        severity=Severity.CRITICAL,
+        confidence=Confidence.HIGH,
+        impact=Impact.HIGH,
+        action=AlertAction.OBSERVED,
+        labels=["endpoint", "powershell", "credential-access"],
+        desc=(
+            "Eight minutes after the unusual sign-in, the same account opened a remote session to the "
+            "finance application server and launched encoded PowerShell from a service process."
+        ),
+        first_seen_time=now - timedelta(minutes=10),
+        last_seen_time=now - timedelta(minutes=8),
+        rule_id="DEMO-EDR-2048",
+        rule_name="Encoded PowerShell from service process",
+        analytic_name="Endpoint behavioral detection",
+        analytic_type=AlertAnalyticType.BEHAVIORAL,
+        analytic_state=AlertAnalyticState.ACTIVE,
+        product_category=ProductCategory.EDR,
+        product_vendor="Demo Endpoint Security",
+        product_name="Demo EDR",
+        risk_level=AlertRiskLevel.CRITICAL,
+        status=AlertStatus.NEW,
+        correlation_uid=case.correlation_uid,
+    )
+    endpoint_alert.artifacts.add(account, host, command)
+
+    Enrichment.objects.create(
+        artifact=source_ip,
+        name="Threat-intelligence reputation",
+        type=EnrichmentType.REPUTATION,
+        provider=EnrichmentProvider.MOCK_TI_PROVIDER,
+        uid="demo-complex-live-llm:source-ip-reputation",
+        value=source_ip.value,
+        desc="Observed in credential-stuffing activity by three tenants during the previous 24 hours; confidence high.",
+        data={"documentation_only": True, "risk_score": 92},
+    )
+    Enrichment.objects.create(
+        artifact=account,
+        name="Identity directory context",
+        type=EnrichmentType.IDENTITY,
+        provider=EnrichmentProvider.MICROSOFT_ENTRA_ID,
+        uid="demo-complex-live-llm:account-context",
+        value=account.value,
+        desc="Non-interactive finance service account; owner is Finance Platform; no approved interactive sign-ins.",
+        data={"privileged": True, "interactive_login_allowed": False},
+    )
+    Enrichment.objects.create(
+        artifact=host,
+        name="CMDB asset context",
+        type=EnrichmentType.CMDB,
+        provider=EnrichmentProvider.INTERNAL_CMDB,
+        uid="demo-complex-live-llm:asset-context",
+        value=host.value,
+        desc="Production finance application server processing payment files; business criticality is High.",
+        data={"environment": "production", "business_criticality": "High"},
+    )
+    Enrichment.objects.create(
+        alert=endpoint_alert,
+        name="EDR process-tree review",
+        type=EnrichmentType.DETECTION,
+        provider=EnrichmentProvider.MOCK,
+        uid="demo-complex-live-llm:process-tree",
+        value="encoded PowerShell",
+        desc="No approved deployment job matched the process tree; outbound connection telemetry is unavailable.",
+        data={"approved_change": False, "network_telemetry_available": False},
+    )
 
 ORDINAL_CASES = [
     {
@@ -177,6 +315,11 @@ class Command(BaseCommand):
             action="store_true",
             help="Also create an unprocessed Case for a before-and-after LLM investigation.",
         )
+        parser.add_argument(
+            "--include-complex-live-llm",
+            action="store_true",
+            help="Also create an unprocessed live-LLM Case with Alerts, artifacts, and enrichments.",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -184,7 +327,11 @@ class Command(BaseCommand):
         if existing.exists() and options["no_reset"]:
             self.stdout.write(self.style.WARNING(f"Demo data already exists ({existing.count()} Cases); no changes made."))
             return
+        existing_artifact_ids = list(
+            Artifact.objects.filter(alerts__case__in=existing).values_list("id", flat=True).distinct()
+        )
         existing.delete()
+        Artifact.objects.filter(id__in=existing_artifact_ids, alerts__isnull=True).delete()
 
         users = ensure_demo_users()
         now = timezone.now()
@@ -279,7 +426,27 @@ class Command(BaseCommand):
             live_case.save(update_fields=["description", "summary", "tags", "updated_at"])
             created.append(live_case)
 
-        live_summary = " and 1 live LLM Case" if options["include_live_llm"] else ""
+        if options["include_complex_live_llm"]:
+            complex_case = create_case(
+                slug="complex-live-llm-enrichment",
+                title="[DEMO COMPLEX LLM] Correlated identity and endpoint activity",
+                category=CaseCategory.SIEM,
+                status=CaseStatus.NEW,
+                assignee=users["demo.alice"],
+                human=("", CaseSeverity.CRITICAL, CaseImpact.HIGH, CasePriority.CRITICAL, CaseConfidence.HIGH),
+            )
+            complex_case.description = (
+                "Correlate an unusual service-account sign-in with subsequent encoded PowerShell execution "
+                "on a production finance server. Validate the attached source, identity, asset, and process context."
+            )
+            complex_case.summary = "Awaiting enriched live Agentic SOC Case investigation."
+            complex_case.tags = [DEMO_TAG, "demo:complex-live-llm-enrichment", "identity", "endpoint", "correlated"]
+            complex_case.save(update_fields=["description", "summary", "tags", "updated_at"])
+            create_complex_live_llm_context(complex_case, now)
+            created.append(complex_case)
+
+        live_count = int(options["include_live_llm"]) + int(options["include_complex_live_llm"])
+        live_summary = f" and {live_count} live LLM Case(s)" if live_count else ""
         self.stdout.write(self.style.SUCCESS(
             f"Seeded {len(created)} demo Cases: 18 triage Cases, 7 closed AI quality Cases{live_summary}."
         ))
@@ -293,7 +460,7 @@ class Command(BaseCommand):
                 "AI quality evaluation is not implemented on this branch; source Jobs and Case AI fields were seeded."
             ))
 
-        if options["include_live_llm"]:
+        if live_count:
             self.stdout.write(
-                "Live LLM Case is ready but not queued. Run queue_live_llm_case_demo after showing its empty Investigation tab."
+                "Live LLM Case(s) are ready but not queued. Use the matching queue command after showing the empty Investigation tab."
             )
