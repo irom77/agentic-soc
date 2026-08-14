@@ -240,7 +240,7 @@ def recover_orphaned_playbook_runs():
         orphaned_runs = list(
             Playbook.objects
             .select_for_update()
-            .select_related("user", "case")
+            .select_related("case")
             .filter(job_status=PlaybookJobStatus.RUNNING)
         )
         finished_at = timezone.now()

@@ -46,7 +46,7 @@ export default function RelatedEnrichmentsTable({
         columns={columns}
         filters={filters}
         advancedFilters={advancedFilters}
-        baseParams={targetId ? {[targetType]: targetId} : {}}
+        baseParams={targetId ? (targetType === 'case' ? {case_scope: targetId} : {[targetType]: targetId}) : {}}
         onOpenResource={onOpenResource}
         refreshToken={refreshKey}
         actions={(

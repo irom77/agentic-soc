@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, permissions
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -32,6 +33,13 @@ class EnrichmentViewSet(AuditActorMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        case_scope = self.request.query_params.get("case_scope")
+        if case_scope:
+            queryset = queryset.filter(
+                Q(case_id=case_scope)
+                | Q(alert__case_id=case_scope)
+                | Q(artifact__alerts__case_id=case_scope)
+            ).distinct()
         content_type = self.request.query_params.get("content_type")
         object_id = self.request.query_params.get("object_id")
         if content_type and object_id and content_type in {"case", "alert", "artifact"}:
