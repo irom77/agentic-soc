@@ -1,36 +1,35 @@
-# Case Triage and AI Quality Demo
+# ASP Feature Demo
 
-This folder contains the repeatable demonstration package for:
+This folder contains the repeatable demonstration package for the Case workflow and Agentic SOC investigation.
 
-- Bulk Case triage.
-- Per-Case AI–Human Agreement.
-- Global AI Quality analytics.
+Start with [Setup and reset](setup-and-reset.md), then follow [Case triage, live LLM investigation, and AI quality](case-triage-and-ai-quality.md).
 
-Start with [Setup and reset](setup-and-reset.md), then use the presenter script in [Case triage and AI quality](case-triage-and-ai-quality.md).
+## Feature status on this branch
 
-The seed command creates a small, clearly labeled dataset and never calls an LLM. The reset command deletes only Cases whose `correlation_uid` starts with `DEMO-CASE-TRIAGE-`. Related analysis jobs and future quality evaluations are removed through their Case relationships.
+| Feature | Status |
+| --- | --- |
+| Case queue and individual Case triage | Available |
+| Seeded Investigation reports | Available |
+| Live structured-output LLM Case investigation | Available through queued jobs and the worker |
+| LLM Providers administration and connection test | Available |
+| Bulk Triage | Not implemented |
+| Per-Case AI–Human Agreement | Not implemented |
+| Global AI Quality page and evaluation lifecycle | Not implemented |
 
-## Current branch status
-
-The seed/reset commands work with the current Case and `CaseAnalysisJob` models. The v0.6.0 bulk-triage API and AI Quality evaluation model/UI are still specifications on this branch. Until those features are implemented, the seeded Cases can be inspected through the existing Case list and Investigation tab, but the Bulk Triage action and global AI Quality page will not appear.
-
-The seed command detects a future `rebuild_ai_quality_evaluations` management command. When available, it runs that command after seeding so the same dataset becomes immediately usable by the completed AI Quality page.
+The default seed creates 25 Cases and never schedules an external LLM call. Add `--include-live-llm` to create a 26th Case with a pending real-analysis job. When the Case analysis worker is running, that job calls the enabled `structured_output` provider.
 
 ## Dataset at a glance
 
 | Group | Count | Purpose |
 | --- | ---: | --- |
-| `[DEMO TRIAGE]` | 18 | Cross-page selection, combined field updates, partial success, close, and reopen |
-| `[DEMO QUALITY]` with valid prediction | 5 | Agreement, mismatch, overestimate, underestimate, and `Unknown` semantics |
-| `[DEMO QUALITY]` without prediction | 1 | `No prediction` coverage state |
-| `[DEMO QUALITY]` with malformed result | 1 | `Invalid prediction` coverage state |
+| `[DEMO TRIAGE]` | 18 | Current Case queue and individual triage; future Bulk Triage |
+| `[DEMO QUALITY]` | 7 | Seeded Investigation reports and future AI–Human Agreement evaluation |
+| `[DEMO LIVE LLM]` | 0 or 1 | Real LLM investigation, included only with `--include-live-llm` |
 
-The command also creates or refreshes three local users:
+The command creates or refreshes three local-only users:
 
-| Username | Password | Intended role |
+| Username | Password | Role |
 | --- | --- | --- |
-| `demo.admin` | `demopass` | Admin; global AI Quality and all triage actions |
+| `demo.admin` | `demopass` | Platform administrator |
 | `demo.alice` | `demopass` | Analyst |
 | `demo.bob` | `demopass` | Analyst |
-
-These credentials are for local demonstrations only.

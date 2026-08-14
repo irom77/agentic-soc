@@ -33,6 +33,7 @@ node_modules/
 .worktrees/
 /asf-doc/
 #/asp-marketplace/
+/.asp-runtime/
 
 # OS
 .DS_Store

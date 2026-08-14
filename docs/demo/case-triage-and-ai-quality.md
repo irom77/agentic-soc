@@ -1,207 +1,144 @@
-# Case Triage and AI Quality Presenter Guide
+# Case Triage, Live LLM Investigation, and AI Quality Demo
 
-## Goal
+## What this branch can demonstrate
 
-Demonstrate one continuous SOC workflow:
+| Module | Status | Demo method |
+| --- | --- | --- |
+| Case queue and individual triage | Available now | Use the 18 `[DEMO TRIAGE]` Cases |
+| Case Investigation report | Available now | Inspect seeded reports or run one real LLM investigation |
+| LLM provider configuration and test | Available now | Use **System Settings → LLM Providers** |
+| Bulk Triage | Not implemented yet | Explain the planned workflow only; there is no button or API |
+| Per-Case AI–Human Agreement | Not implemented yet | Seed data is prepared for it, but no comparison component exists |
+| Global AI Quality | Not implemented yet | Seed data is prepared for it, but there is no System Settings tab |
 
-1. An analyst handles a campaign efficiently with bulk triage.
-2. Closed Cases become quality samples automatically.
-3. An administrator uses field-level AI–Human Agreement to identify where AI recommendations need investigation.
+Do not present planned features as clickable functionality. The runnable presentation on this branch is Parts 1–3 below. Part 4 is a preview of the prepared future dataset.
 
-Use **AI–Human Agreement**, **agreement rate**, and **mismatch** throughout the presentation. Do not call the metric AI accuracy or correctness.
+## Part 1: Start and verify the demo
 
-## Before the session
+1. From the repository root, start ASP:
 
-1. Follow [Setup and reset](setup-and-reset.md).
-2. Sign in as `demo.admin` using password `demopass`.
-3. Set the Case table page size to 10.
-4. Search for `[DEMO TRIAGE]` and confirm that 18 Cases appear.
-5. Open **System Settings → AI Quality**, keep the default last-30-days range, and confirm that seven Closed Cases are represented.
-6. Reset and reseed after any rehearsal so statuses and evaluation samples begin from the documented state.
+   ```bash
+   ./start.sh
+   ```
 
-## Part 1: Campaign triage
+   This starts PostgreSQL, Redis, RustFS, the backend, the frontend, and the Case analysis worker. Runtime logs are under `.asp-runtime/`.
 
-### A. Explain the starting queue
+2. Refresh the deterministic dataset and add one Case for a real LLM run:
 
-On the main **Cases** page, search for `[DEMO TRIAGE]`.
+   ```bash
+   cd backend
+   uv run python manage.py seed_case_triage_demo --include-live-llm
+   ```
 
-Point out that the campaign intentionally contains a mix of:
+   This creates 26 Cases: 18 triage, 7 closed quality examples, and 1 live-LLM Case. The seed code does not invoke an LLM itself. It queues the live Case, and the running Case analysis worker performs the external LLM call.
 
-- New Cases.
-- In Progress Cases.
-- On Hold Cases.
-- Different current assignees.
-- AI recommendations already available for comparison after closure.
+3. Browse to `http://localhost:5173` and choose the **Platform** login method.
+
+4. Sign in as `demo.admin` with password `demopass`.
+
+5. Open **Cases**, search for `[DEMO`, and confirm the groups are visible. The table supports page sizes 20, 50, and 100; it does not offer a page size of 10.
+
+## Part 2: Demonstrate Case triage available now
+
+1. Search for `[DEMO TRIAGE]`. Expect 18 Cases.
+2. Point out the mixed New, In Progress, and On Hold states, different categories, assignees, and structured severity/impact/priority/confidence fields.
+3. Open `[DEMO TRIAGE] Identity campaign signal 01`.
+4. Walk through the Case details, Summary, related records, comments, audit history, and Investigation tab.
+5. Edit one Case using the existing individual Case controls. For example, assign it to `demo.alice`, set it In Progress, and record the analyst verdict.
+6. Return to the queue and show that the saved values appear in the table.
 
 Suggested narration:
 
-> These signals belong to the same identity campaign. Instead of opening and editing each Case, the analyst can explicitly select the Cases they have reviewed and apply the same structured decision.
+> The current branch supports Case-level analyst triage and preserves structured human decisions. The seeded queue gives us repeatable states for demonstrating those controls. Multi-select Bulk Triage is planned but is not present on this branch.
 
-### B. Demonstrate cross-page selection
+To restore the starting state after editing Cases, rerun the seed command.
 
-1. Select three Cases on page 1.
-2. Move to page 2 and select two more.
-3. Confirm that the toolbar shows five selected Cases.
-4. Explain that selection is explicit and limited to 100 Cases; it does not apply to every filtered result.
-5. Do not change the search or filters yet, because doing so intentionally clears the selection.
+## Part 3: Demonstrate live LLM Case investigation
 
-### C. Apply a combined triage update
+### A. Verify the LLM provider
 
-Open **Bulk Triage** and enable only:
+1. As `demo.admin`, open **System Settings → LLM Providers**.
+2. Confirm at least one provider is Enabled.
+3. Open the provider and confirm it has the `structured_output` tag. Case investigation selects a provider using this tag.
+4. Click **Test**. Continue only when the provider test succeeds.
+5. Do not expose the API key while presenting.
 
-| Field | Value |
+### B. Show the live Case and its result
+
+1. Open **Cases** and search for `[DEMO LIVE LLM]`.
+2. Open **Suspicious privileged login investigation**.
+3. Explain the supplied evidence in the description: a privileged identity, impossible travel, an unapproved source IP, and identity-administration API access.
+4. Open the **Investigation** tab.
+5. If the report is still being generated, wait a few seconds and use the tab's refresh button. The UI does not currently start analysis manually or update automatically.
+6. Walk through the generated verdict, severity, impact, priority, confidence, digest, evidence findings, attack chain/timeline, indicators, remediation, and unknowns that the model returned.
+7. Return to the Case details and show the denormalized AI fields beside the analyst-managed Case fields.
+
+The key architecture to explain is:
+
+```text
+Case/Alert creation → pending CaseAnalysisJob → case-analysis worker
+→ structured-output LLM provider → saved AI fields and Investigation report
+```
+
+The seed command uses `trigger=demo_live_llm`, making the run distinguishable from the prepared reports, whose trigger is `demo-seed`.
+
+### C. Prove that the run was live
+
+Run this from `backend`:
+
+```bash
+uv run python manage.py shell -c "from apps.agentic.models import CaseAnalysisJob; j=CaseAnalysisJob.objects.filter(trigger='demo_live_llm').latest('created_at'); print(j.status, j.started_at, j.completed_at, j.error)"
+```
+
+Expected status is `Success`. The start and completion timestamps were produced by the worker during this run.
+
+If the status is `Failed`, inspect the exact failure and worker log:
+
+```bash
+uv run python manage.py shell -c "from apps.agentic.models import CaseAnalysisJob; j=CaseAnalysisJob.objects.filter(trigger='demo_live_llm').latest('created_at'); print(j.error)"
+tail -n 100 ../.asp-runtime/case-analysis-worker.log
+```
+
+After correcting the provider, rerun `seed_case_triage_demo --include-live-llm` to create a fresh pending job. Failed jobs are retained as evidence and are not automatically retried.
+
+## Part 4: Preview the prepared AI Quality dataset
+
+Search for `[DEMO QUALITY]`. These seven Closed Cases make future AI quality behavior concrete even though the evaluator and UI are not implemented:
+
+| Case | Prepared scenario |
 | --- | --- |
-| Assignee | `demo.alice` |
-| Status | `In Progress` |
-| Severity | `High` |
-| Verdict | `Suspicious` |
-| Reason | `Identity campaign reviewed during demo` |
+| Ransomware behavior confirmed | AI and human values agree across five fields |
+| Approved VPN created impossible travel | AI overestimates risk and verdict differs |
+| Executive phishing campaign | AI underestimates risk |
+| DNS tunneling investigation | Mixed agreement |
+| Inconclusive cloud process activity | `Unknown` value semantics |
+| Closed without an AI prediction | Missing-prediction coverage |
+| Closed with an invalid AI prediction | Invalid-prediction coverage |
 
-Before submitting, point out the enabled-field preview. Fields whose edit toggle is off must remain unchanged.
+Open any valid example and use **Investigation** to show its prepared report. Make clear that these reports are deterministic fixtures, not calls made during the presentation.
 
-After submitting, show:
+Use **AI–Human Agreement**, **agreement rate**, and **mismatch** when describing the planned evaluator. Avoid calling the future metric AI accuracy or correctness: a final human disposition is a comparison reference, not proof of objective truth.
 
-- The success/failure summary.
-- Successful Cases removed from the selection.
-- Failed Cases, if any, retained for correction.
-- Refreshed values in the Case list.
-- One aggregated assignment notification for `demo.alice`, rather than one notification per Case.
+### Planned, not runnable on this branch
 
-Suggested narration:
+- Cross-page selection and Bulk Triage.
+- Per-Case five-field AI–Human comparison.
+- **System Settings → AI Quality** coverage, agreement, direction, confusion matrix, trend, filters, and sample drilldown.
+- Evaluation lifecycle rebuild on close, reopen, and human-field correction.
+- `rebuild_ai_quality_evaluations` management command.
 
-> Each Case is committed independently. One bad transition cannot roll back valid analyst work, and every successful update shares an operation ID for traceability.
+## Close and reset
 
-### D. Demonstrate partial success deliberately
-
-Reset the search to `[DEMO TRIAGE]`. Select one **New** Case and one **In Progress** Case. Set only **Status → Resolved** and submit.
-
-Expected result:
-
-- New → Resolved fails with `invalid_transition`.
-- In Progress → Resolved succeeds.
-- The failed New Case remains selected.
-
-Explain that request-structure errors reject the entire request, while Case-specific state errors produce safe per-Case failures.
-
-### E. Demonstrate bulk closure
-
-Select two In Progress or Resolved demo Cases. In **Bulk Triage**, enable:
-
-| Field | Value |
-| --- | --- |
-| Status | `Closed` |
-| Verdict | `False Positive` |
-| Reason | `Confirmed approved VPN activity after campaign review.` |
-
-Point out that selecting Closed makes the disposition reason required. Submit, then open one successful Case.
-
-Verify:
-
-- `closed_time` is populated.
-- Verdict is False Positive.
-- Summary contains a **Bulk disposition** Markdown section with UTC time, actor, and reason.
-- Audit contains one `updated` entry with `source=bulk_triage`, the shared operation ID, actual field changes, and reason.
-
-If time permits, reopen that Case by changing Closed → In Progress. Verify that `closed_time` and verdict are cleared while the acknowledgement time, Summary, and audit history remain.
-
-## Part 2: Per-Case AI–Human Agreement
-
-Clear the Case search and search for `[DEMO QUALITY]`. Open **Approved VPN created impossible travel**, then select its **Investigation** tab.
-
-At the top, use the five-row comparison to explain:
-
-| Field | AI | Human | Expected interpretation |
-| --- | --- | --- | --- |
-| Verdict | Suspicious | False Positive | Mismatch |
-| Severity | High | Medium | Overestimate, distance 1 |
-| Impact | Medium | Low | Overestimate, distance 1 |
-| Priority | High | Low | Overestimate, distance 2 |
-| Confidence | High | High | Agreement |
-
-Explain these rules:
-
-- Each field is measured separately; there is no composite score.
-- Verdict uses exact enum agreement and a full confusion matrix.
-- Severity, impact, priority, and confidence also show ordinal direction and distance.
-- `Unknown` is a real value and participates in agreement, but it has no ordinal distance.
-- An empty AI or human value is **Not evaluable** and is excluded from that field's denominator.
-- The reference prediction is the latest successful analysis completed no later than Case closure.
-
-Next, briefly open:
-
-- **Ransomware behavior confirmed** to show five-field agreement.
-- **Executive phishing campaign** to show AI underestimation.
-- **Inconclusive cloud process activity** to explain `Unknown`.
-- **Closed without an AI prediction** to show `No prediction`.
-- **Closed with an invalid AI prediction** to show `Invalid prediction`.
-
-## Part 3: Global AI Quality
-
-Open **System Settings → AI Quality** as `demo.admin`.
-
-### A. Coverage
-
-With the last-30-days filter, expect:
-
-- Total Closed Cases: 7.
-- Evaluated: 5.
-- No prediction: 1.
-- Invalid prediction: 1.
-- Prediction Coverage: 5 / 7, approximately 71.4%.
-
-Explain that both missing and invalid predictions remain in the coverage denominator, while invalid results are shown separately for diagnosis.
-
-### B. Agreement and direction
-
-Show the five field cards and their sample counts. Avoid presenting any field rate without its denominator.
-
-Then show:
-
-- The full Verdict confusion matrix.
-- Mean absolute distance for ordinal fields.
-- Match, overestimate, and underestimate counts.
-- The agreement trend, noting that bucket size changes from daily to weekly to monthly as the selected range grows.
-
-Suggested narration:
-
-> This page tells us whether disagreement is concentrated in a particular judgment. Direction matters: persistent severity overestimation creates alert fatigue, while underestimation can hide risk.
-
-### C. Filter and drill down
-
-1. Filter Category to IAM to isolate the VPN mismatch.
-2. Clear Category and filter Human severity to High.
-3. Filter Coverage state to Invalid prediction.
-4. Reset filters and choose **Severity mismatches only** in the sample table.
-5. Open a Case from the drilldown.
-
-Point out that filters use the closure-time snapshots for category and assignee. Later reassignment does not rewrite historical grouping unless the Closed Case evaluation is rebuilt by an allowed human-field correction.
-
-Also explain what is intentionally absent:
-
-- No model, provider, prompt, or profile filters.
-- No analyst leaderboard.
-- No pass/fail threshold.
-- No combined quality score.
-- No raw analysis payload or full investigation report in the sample API.
-
-## Part 4: Lifecycle proof
-
-Use a seeded Closed quality Case for this final sequence:
-
-1. Record its current presence in the AI Quality sample table.
-2. Reopen it as In Progress.
-3. Refresh AI Quality and verify that its evaluation is gone; open Cases do not participate.
-4. Set a valid human verdict and close the Case again with a disposition reason.
-5. Refresh AI Quality and verify that a new current evaluation appears.
-6. While the Case remains Closed, change one human comparison field and verify that the same current evaluation is rebuilt.
-
-Explain that evaluation work runs after the Case transaction. A quality-build failure must never block closure, reopening, or analyst corrections; administrators can reconcile missing samples with:
+Reset only the scoped demo Cases:
 
 ```bash
 cd backend
-uv run python manage.py rebuild_ai_quality_evaluations
+uv run python manage.py reset_case_triage_demo --confirm
 ```
 
-## Closing message
+Stop ASP while preserving database volumes:
 
-> Bulk triage improves analyst throughput without weakening Case-level validation or auditability. AI Quality then turns final structured decisions into explainable feedback: coverage first, agreement by field, direction and distance where meaningful, and direct access to the samples behind every metric.
+```bash
+cd ..
+./stop.sh
+```

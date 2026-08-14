@@ -1,96 +1,158 @@
 # Demo Setup and Reset
 
-Run all commands from the repository's `backend` directory with the development environment configured.
+Run lifecycle scripts from the repository root and Django commands from `backend`.
 
-## 1. Confirm migrations
+## 1. Configure the local services
 
-The demo commands do not introduce database schema changes. Before seeding, confirm that the migrations already present on the branch are applied:
+Confirm `backend/.env` contains the development PostgreSQL connection used by the Docker Compose stack. For the standard local stack:
+
+```dotenv
+POSTGRES_DB=asp
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=asp-dev-postgres-password
+POSTGRES_HOST=localhost
+POSTGRES_PORT=15432
+```
+
+Do not commit `backend/.env`.
+
+## 2. Start ASP
+
+```bash
+./start.sh
+```
+
+The script starts the development containers plus these processes:
+
+- Backend at `http://127.0.0.1:8001`.
+- Frontend at `http://localhost:5173`.
+- Agentic Case analysis worker.
+
+Logs and PID files are stored in `.asp-runtime/`. Use `./restart.sh` after changing backend environment variables or provider-related configuration.
+
+## 3. Confirm migrations
+
+The demo changes do not add or alter database tables. Confirm the existing migrations are applied:
 
 ```bash
 cd backend
 uv run python manage.py migrate
-uv run python manage.py showmigrations cases agentic
+uv run python manage.py showmigrations cases agentic settings
 ```
 
-When AI Quality is implemented, its ORM migration must also be applied before running the seed command.
+## 4. Configure an LLM provider for the live module
 
-## 2. Seed or refresh the dataset
+This step is required only for a real investigation run. Seeded Investigation reports work without provider credentials.
+
+1. Browse to `http://localhost:5173`.
+2. Choose **Platform** login.
+3. Sign in as `demo.admin` / `demopass` after completing the seed step below, or use an existing administrator first.
+4. Open **System Settings → LLM Providers**.
+5. Add or edit an OpenAI-compatible provider.
+6. Supply Name, Base URL, Model, and API Key as required by that provider.
+7. Add the `structured_output` tag. This tag is required by Case investigation provider selection.
+8. Set Enabled on and assign the desired priority. Lower-priority-number enabled providers are considered first.
+9. Click **Test**, then save. Do not proceed with the live demo until the test succeeds.
+
+## 5. Seed the dataset
+
+For deterministic Cases only:
 
 ```bash
 uv run python manage.py seed_case_triage_demo
 ```
 
-The default behavior is repeatable: it deletes the previous scoped demo Cases and creates a fresh dataset with dates relative to the current time. It does not touch ordinary Cases.
+Expected count: 25 Cases.
 
-Expected output includes:
+For the complete demo including one real LLM investigation:
 
-```text
-Seeded 25 demo Cases: 18 triage Cases and 7 closed AI quality Cases.
-Demo users: demo.admin, demo.alice, demo.bob (password: demopass)
+```bash
+uv run python manage.py seed_case_triage_demo --include-live-llm
 ```
 
-On a branch without AI Quality implementation, the command also reports that the source jobs and Case AI fields were seeded. On a completed branch, it runs `rebuild_ai_quality_evaluations` after committing the Cases.
+Expected count: 26 Cases. The additional `[DEMO LIVE LLM]` Case is created with a pending `CaseAnalysisJob`. The seed code does not call the model directly; the running worker claims the job and calls the configured provider.
 
-To leave an existing demo dataset unchanged:
+Both forms replace the previous scoped dataset. To leave an existing dataset unchanged:
 
 ```bash
 uv run python manage.py seed_case_triage_demo --no-reset
 ```
 
-## 3. Verify the seed
+Do not combine `--no-reset` with `--include-live-llm` when the dataset already exists: no new Case will be added.
+
+## 6. Verify the seed and worker
 
 ```bash
-uv run python manage.py shell -c "from apps.cases.models import Case; q=Case.objects.filter(correlation_uid__startswith='DEMO-CASE-TRIAGE-'); print(q.count(), q.filter(status='Closed').count())"
+uv run python manage.py shell -c "from apps.cases.models import Case; q=Case.objects.filter(correlation_uid__startswith='DEMO-CASE-TRIAGE-'); print('total=', q.count(), 'closed=', q.filter(status='Closed').count())"
 ```
 
-Expected result:
+Expected results are `total=25 closed=7`, or `total=26 closed=7` with the live option.
 
-```text
-25 7
+For the live job:
+
+```bash
+uv run python manage.py shell -c "from apps.agentic.models import CaseAnalysisJob; j=CaseAnalysisJob.objects.filter(trigger='demo_live_llm').latest('created_at'); print(j.status, j.error)"
 ```
 
-Sign in as `demo.admin`, open **Cases**, and search for `[DEMO`. Both demo groups should be visible. Searching for `[DEMO TRIAGE]` should return 18 Cases, which is enough to demonstrate selection across pages when the table page size is 10.
+The normal progression is Pending → Running → Success. Refresh after a few seconds if it is still Pending or Running.
 
-## 4. Reset the dataset
+## 7. Reset safely
 
-Preview the reset scope by omitting confirmation:
+Preview the deletion scope:
 
 ```bash
 uv run python manage.py reset_case_triage_demo
 ```
 
-The command refuses to delete and prints the number of matching Cases. Perform the scoped deletion with:
+Delete only the scoped demo Cases and their related analysis jobs:
 
 ```bash
 uv run python manage.py reset_case_triage_demo --confirm
 ```
 
-The reset removes only Cases whose `correlation_uid` begins with `DEMO-CASE-TRIAGE-`. It deliberately keeps the three demo users so references from other manually created records are not disturbed.
+The reset matches `correlation_uid` values beginning with `DEMO-CASE-TRIAGE-`. It keeps the three demo users.
 
 ## Troubleshooting
 
-### Bulk Triage or AI Quality is missing
+### The first command cannot find `manage.py`
 
-Those surfaces are not implemented on the current branch. Confirm that the v0.6.0 feature branch includes:
-
-- `POST /api/cases/bulk-triage/`.
-- The `AiQualityEvaluation` model and migration.
-- `rebuild_ai_quality_evaluations`.
-- **System Settings → AI Quality**.
-- The per-Case comparison at the top of **Investigation**.
-
-Then apply migrations and rerun the seed command.
-
-### The AI Quality page has no samples
-
-Run the repair command after seeding:
+Run Django commands inside `backend`:
 
 ```bash
-uv run python manage.py rebuild_ai_quality_evaluations
+cd /home/irom/PythonProjects/agentic-soc-platform/backend
 ```
 
-Use a closed-time filter covering the last 30 days. All seven seeded quality Cases are inside that window.
+### PostgreSQL reports “no password supplied”
 
-### Demo Cases were changed during rehearsal
+Check `backend/.env`, confirm port `15432` for the standard development container, and run `../restart.sh`.
 
-Run `seed_case_triage_demo` again. Its default behavior restores the complete deterministic scenario.
+### Login fails
+
+Rerun the seed command to refresh the demo users and passwords. Select **Platform**, not LDAP, on the login page.
+
+### The live Case remains Pending
+
+Confirm the worker is running and inspect its log:
+
+```bash
+kill -0 "$(cat ../.asp-runtime/case-analysis-worker.pid)"
+tail -n 100 ../.asp-runtime/case-analysis-worker.log
+```
+
+If necessary, process one queued job in the foreground:
+
+```bash
+uv run python manage.py run_agentic_case_analysis_worker --once
+```
+
+### The live Case fails
+
+Read the saved job error and the worker log. Common causes are a missing enabled provider, a missing `structured_output` tag, an invalid API key/base URL/model, or a provider that cannot produce the required structured response. Fix the provider, test it in System Settings, and reseed with `--include-live-llm`; failed jobs are not retried automatically.
+
+### Bulk Triage or AI Quality is missing
+
+That is expected on this branch. Neither UI is implemented. The detailed guide labels those sections as planned and uses the current Case and Investigation features for the runnable demo.
+
+### Restore the rehearsal state
+
+Rerun the desired seed command. It replaces only the scoped demo dataset and recreates its relative timestamps and initial values.

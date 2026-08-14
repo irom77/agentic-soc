@@ -8,6 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.agentic.models import AgenticJobStatus, CaseAnalysisJob
+from apps.agentic.services.cases import request_case_analysis
 from apps.cases.models import (
     Case,
     CaseCategory,
@@ -164,13 +165,18 @@ def create_case(*, slug, title, category, status, assignee, human, ai=None, clos
 
 
 class Command(BaseCommand):
-    help = "Seed deterministic Cases for the bulk triage and AI quality demo."
+    help = "Seed Cases for the triage, Investigation, and future AI quality demo."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--no-reset",
             action="store_true",
             help="Keep an existing demo dataset instead of replacing it.",
+        )
+        parser.add_argument(
+            "--include-live-llm",
+            action="store_true",
+            help="Also create a Case with a pending job for a real LLM investigation.",
         )
 
     @transaction.atomic
@@ -256,8 +262,28 @@ class Command(BaseCommand):
         )
         created.append(invalid_prediction)
 
+        if options["include_live_llm"]:
+            live_case = create_case(
+                slug="live-llm-investigation",
+                title="[DEMO LIVE LLM] Suspicious privileged login investigation",
+                category=CaseCategory.IAM,
+                status=CaseStatus.NEW,
+                assignee=users["demo.alice"],
+                human=("", CaseSeverity.HIGH, CaseImpact.HIGH, CasePriority.HIGH, CaseConfidence.MEDIUM),
+            )
+            live_case.description = (
+                "A privileged account signed in from a new country shortly after a successful login from its usual location. "
+                "The source IP is not present in the approved VPN range, and the account accessed identity administration APIs."
+            )
+            live_case.summary = "Awaiting live Agentic SOC Case investigation."
+            live_case.tags = [DEMO_TAG, "demo:live-llm-investigation", "identity", "privileged-access", "impossible-travel"]
+            live_case.save(update_fields=["description", "summary", "tags", "updated_at"])
+            request_case_analysis(case=live_case, trigger="demo_live_llm")
+            created.append(live_case)
+
+        live_summary = " and 1 live LLM Case" if options["include_live_llm"] else ""
         self.stdout.write(self.style.SUCCESS(
-            f"Seeded {len(created)} demo Cases: 18 triage Cases and 7 closed AI quality Cases."
+            f"Seeded {len(created)} demo Cases: 18 triage Cases, 7 closed AI quality Cases{live_summary}."
         ))
         self.stdout.write(f"Demo users: demo.admin, demo.alice, demo.bob (password: {DEMO_PASSWORD})")
 
@@ -268,3 +294,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 "AI quality evaluation is not implemented on this branch; source Jobs and Case AI fields were seeded."
             ))
+
+        if options["include_live_llm"]:
+            self.stdout.write(
+                "Live LLM Case queued. The case-analysis worker will process [DEMO LIVE LLM] using an enabled provider."
+            )
