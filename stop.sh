@@ -32,6 +32,7 @@ stop_process() {
 }
 
 stop_process frontend
+stop_process playbook-worker
 stop_process case-analysis-worker
 stop_process backend
 

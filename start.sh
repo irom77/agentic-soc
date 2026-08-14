@@ -66,6 +66,8 @@ start_process backend "$ROOT_DIR/backend" \
   "uv run python -m uvicorn asp.asgi:application --host 127.0.0.1 --port 8001"
 start_process case-analysis-worker "$ROOT_DIR/backend" \
   "uv run python manage.py run_agentic_case_analysis_worker"
+start_process playbook-worker "$ROOT_DIR/backend" \
+  "uv run python manage.py run_agentic_playbook_worker"
 start_process frontend "$ROOT_DIR/frontend" \
   "pnpm dev -- --host 127.0.0.1 --port 5173"
 

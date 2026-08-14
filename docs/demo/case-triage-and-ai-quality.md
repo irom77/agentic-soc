@@ -7,11 +7,12 @@
 | Case queue and individual triage | Available now | Use the 18 `[DEMO TRIAGE]` Cases |
 | Case Investigation report | Available now | Inspect seeded reports or run one real LLM investigation |
 | LLM provider configuration and test | Available now | Use **System Settings → LLM Providers** |
+| AlienVault OTX enrichment | Available now | Run the Threat Intelligence Enrichment playbook against the live OTX Case |
 | Bulk Triage | Not implemented yet | Explain the planned workflow only; there is no button or API |
 | Per-Case AI–Human Agreement | Not implemented yet | Seed data is prepared for it, but no comparison component exists |
 | Global AI Quality | Not implemented yet | Seed data is prepared for it, but there is no System Settings tab |
 
-Do not present planned features as clickable functionality. The runnable presentation on this branch is Parts 1–4 below. Part 5 is a preview of the prepared future dataset.
+Do not present planned features as clickable functionality. The runnable presentation on this branch is Parts 1–5 below. Part 6 is a preview of the prepared future dataset.
 
 ## Part 1: Start and verify the demo
 
@@ -21,16 +22,16 @@ Do not present planned features as clickable functionality. The runnable present
    ./start.sh
    ```
 
-   This starts PostgreSQL, Redis, RustFS, the backend, the frontend, and the Case analysis worker. Runtime logs are under `.asp-runtime/`.
+   This starts PostgreSQL, Redis, RustFS, the backend, the frontend, the Case analysis worker, and the playbook worker. Runtime logs are under `.asp-runtime/`.
 
-2. Refresh the deterministic dataset and add both Cases for real LLM runs:
+2. Refresh the deterministic dataset and add all Cases for live runs:
 
    ```bash
    cd backend
-   uv run python manage.py seed_case_triage_demo --include-live-llm --include-complex-live-llm
+   uv run python manage.py seed_case_triage_demo --include-live-llm --include-complex-live-llm --include-live-otx
    ```
 
-   This creates 27 Cases: 18 triage, 7 closed quality examples, and 2 unprocessed live-LLM Cases. It does not queue or invoke the LLM yet.
+   This creates 28 Cases: 18 triage, 7 closed quality examples, 2 unprocessed live-LLM Cases, and 1 live-OTX Case. It does not queue OTX enrichment or invoke the LLM yet.
 
 3. Browse to `http://localhost:5173` and choose the **Platform** login method.
 
@@ -389,7 +390,111 @@ Use a fresh seed immediately before capturing the **before** images. Do not run 
 
 For consistent images, use one browser window size, keep the left navigation visible, avoid showing provider secrets, and capture the complete record title or readable ID so viewers can tell that every image belongs to the same Case.
 
-## Part 5: Preview the prepared AI Quality dataset
+## Part 5: Demonstrate real AlienVault OTX enrichment before LLM investigation
+
+This module proves that enrichment can be collected during the presentation. Unlike Part 4, the seed creates no Enrichment records for this Case.
+
+### A. Prepare and verify OTX
+
+1. Open **System Settings → Threat Intelligence → AlienVault OTX**.
+2. Confirm OTX is Enabled, click **Test**, and verify authentication succeeds.
+3. Leave OpenCTI disabled if the presentation should show OTX results only. The playbook queries every enabled threat-intelligence provider.
+4. Confirm the playbook worker started with ASP:
+
+   ```bash
+   kill -0 "$(cat ../.asp-runtime/playbook-worker.pid)"
+   ```
+
+### B. Show the untouched Case
+
+1. Search Cases for `[DEMO LIVE OTX]` and open **External indicator enrichment**.
+2. Open **Alerts** and select **Unknown executable observed after an external download**.
+3. Open the Alert's **Artifacts** tab. It contains:
+
+   - `8.8.8.8`, a public IPv4 indicator.
+   - `example.com`, a hostname indicator.
+   - `84c82835a5d21bbcf75a61706d8ab549`, a valid MD5 indicator associated in public threat reporting with WannaCry.
+
+4. Open each Artifact's **Enrichments** tab and confirm it has no records.
+5. Return to the Case and confirm **Playbooks** has no run and **Investigation** shows **No data**.
+
+At this point ASP has made no request to OTX or an LLM. The indicators are seed input, not claims about what OTX will return. OTX data changes over time, so never promise a particular pulse count, risk, tag, or verdict.
+
+### C. Trigger the real provider calls
+
+At the presentation cue, run from `backend`:
+
+```bash
+uv run python manage.py queue_live_otx_enrichment_demo
+```
+
+This creates a Pending **Threat Intelligence Enrichment** playbook run. The playbook worker then:
+
+```text
+Case → Alert → three unique Artifacts
+→ AlienVault OTX HTTPS API lookup for each supported indicator
+→ normalized provider results
+→ Artifact-level Enrichment records saved in ASP
+```
+
+The command itself does not call OTX. The observable external calls occur when the worker changes the playbook from Pending to Running. OTX is queried independently for each Artifact; an unsupported or unsuccessful lookup does not fabricate an Enrichment record.
+
+### D. Prove and inspect the enrichment
+
+1. Refresh the Case **Playbooks** tab until the run is `Success`.
+2. Open the run and read its remark. It reports Alerts visited, Artifact references, unique Artifacts, successful enrichments, unsupported results, and errors.
+3. Return through **Alerts → the Alert → Artifacts**.
+4. Open each Artifact's **Enrichments** tab. Successful results now show provider `AlienVaultOTX`, type `Threat Intelligence`, the indicator value, and OTX's normalized assessment.
+5. Open an Enrichment record to inspect the saved details. The database also retains normalized structured data such as pulse summaries, tags, attack techniques, related malware or adversaries, network context, reputation, and provider errors when supplied by OTX.
+
+Use this command to show the live run and record count without exposing the API key:
+
+```bash
+uv run python manage.py shell -c "from apps.cases.models import Case; from apps.playbooks.models import Playbook; from apps.enrichments.models import Enrichment; c=Case.objects.get(title__startswith='[DEMO LIVE OTX]'); p=Playbook.objects.filter(case=c, name='Threat Intelligence Enrichment').latest('created_at'); q=Enrichment.objects.filter(artifact__alerts__case=c, provider='AlienVaultOTX').distinct(); print('playbook=', p.job_status, 'started=', p.started_at, 'finished=', p.finished_at, 'otx_enrichments=', q.count(), 'remark=', p.remark)"
+```
+
+Expected evidence of a live run is a `Success` playbook with current start/finish timestamps and one or more OTX Enrichment records. The exact count may be lower than three if OTX does not return usable intelligence for every indicator.
+
+### E. Send the newly enriched Case to the LLM
+
+Only after the enrichment run succeeds, execute:
+
+```bash
+uv run python manage.py queue_live_otx_case_demo
+```
+
+The command refuses to queue analysis if no OTX Enrichment exists. Once queued, the Case analysis worker serializes the Case, Alert, Artifacts, and saved enrichment summaries and sends them to the configured `structured_output` LLM. Refresh **Investigation** after the job succeeds.
+
+The LLM receives each Enrichment's name, type, provider, value, and description. As in Part 4, the current investigation profile does not send the full `data` JSON. When presenting a report statement, distinguish:
+
+- OTX evidence shown in the Enrichment description.
+- Seeded endpoint observations in the Alert.
+- The LLM's correlation and verdict, which remain recommendations.
+
+Prove the second live stage with:
+
+```bash
+uv run python manage.py shell -c "from apps.agentic.models import CaseAnalysisJob; j=CaseAnalysisJob.objects.filter(trigger='demo_live_otx').latest('created_at'); print(j.status, j.started_at, j.completed_at, j.error)"
+```
+
+### F. Reset the before/enriched/after sequence
+
+Rerunning the seed with `--include-live-otx` deletes and recreates the scoped Case, Alert, Artifacts, playbook runs, Enrichments, and analysis jobs. This restores the truly empty before state:
+
+```bash
+uv run python manage.py seed_case_triage_demo --include-live-otx
+```
+
+Capture these checkpoints for the documentation after rehearsing the flow:
+
+1. Case queue and Case details before enrichment.
+2. Alert Artifacts and an empty Artifact Enrichments tab.
+3. Successful Playbook run.
+4. Artifact Enrichments populated with OTX records.
+5. Empty Investigation before the LLM call.
+6. Case AI fields and Investigation after the LLM call.
+
+## Part 6: Preview the prepared AI Quality dataset
 
 Search for `[DEMO QUALITY]`. These seven Closed Cases make future AI quality behavior concrete even though the evaluator and UI are not implemented:
 

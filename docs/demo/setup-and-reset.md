@@ -27,6 +27,7 @@ The script starts the development containers plus these processes:
 - Backend at `http://127.0.0.1:8001`.
 - Frontend at `http://localhost:5173`.
 - Agentic Case analysis worker.
+- Agentic playbook worker.
 
 Logs and PID files are stored in `.asp-runtime/`. Use `./restart.sh` after changing backend environment variables or provider-related configuration.
 
@@ -54,7 +55,17 @@ This step is required only for a real investigation run. Seeded Investigation re
 8. Set Enabled on and assign the desired priority. Lower-priority-number enabled providers are considered first.
 9. Click **Test**, then save. Do not proceed with the live demo until the test succeeds.
 
-## 5. Seed the dataset
+## 5. Configure AlienVault OTX for live enrichment
+
+1. Sign in as an administrator.
+2. Open **System Settings → Threat Intelligence → AlienVault OTX**.
+3. Enable the integration and enter the OTX API key.
+4. Click **Test** and continue only when authentication succeeds.
+5. Save the configuration. Do not expose the API key while presenting.
+
+OpenCTI is not required for this walkthrough. If OpenCTI is enabled locally, the Threat Intelligence Enrichment playbook queries it as well as OTX; disable it temporarily when the presentation should demonstrate OTX alone.
+
+## 6. Seed the dataset
 
 For deterministic Cases only:
 
@@ -80,6 +91,20 @@ uv run python manage.py seed_case_triage_demo --include-complex-live-llm
 
 Expected count: 26 Cases. To prepare both live examples at once, pass both flags; the expected count is 27.
 
+For the real OTX enrichment example:
+
+```bash
+uv run python manage.py seed_case_triage_demo --include-live-otx
+```
+
+Expected count: 26 Cases. To prepare every runnable example, use:
+
+```bash
+uv run python manage.py seed_case_triage_demo --include-live-llm --include-complex-live-llm --include-live-otx
+```
+
+Expected count: 28 Cases.
+
 Both forms replace the previous scoped dataset. To leave an existing dataset unchanged:
 
 ```bash
@@ -88,7 +113,7 @@ uv run python manage.py seed_case_triage_demo --no-reset
 
 Do not combine `--no-reset` with either live option when the dataset already exists: no new Case will be added.
 
-## 6. Verify the seed, then queue the live run
+## 7. Verify the seed, then queue the live run
 
 ```bash
 uv run python manage.py shell -c "from apps.cases.models import Case; q=Case.objects.filter(correlation_uid__startswith='DEMO-CASE-TRIAGE-'); print('total=', q.count(), 'closed=', q.filter(status='Closed').count())"
@@ -118,7 +143,16 @@ For the enriched Case, use:
 uv run python manage.py queue_complex_llm_case_demo
 ```
 
-## 7. Reset safely
+For the live OTX Case, the order is significant:
+
+```bash
+uv run python manage.py queue_live_otx_enrichment_demo
+uv run python manage.py queue_live_otx_case_demo
+```
+
+Wait for the playbook to reach `Success` before running the second command. The LLM queue command refuses to run until at least one OTX Enrichment exists.
+
+## 8. Reset safely
 
 Preview the deletion scope:
 
@@ -165,6 +199,21 @@ If necessary, process the queued job in the foreground:
 
 ```bash
 uv run python manage.py run_agentic_case_analysis_worker --once
+```
+
+### OTX enrichment remains Pending
+
+Confirm the playbook worker is running and inspect its log:
+
+```bash
+kill -0 "$(cat ../.asp-runtime/playbook-worker.pid)"
+tail -n 100 ../.asp-runtime/playbook-worker.log
+```
+
+If necessary, process one queued playbook in the foreground:
+
+```bash
+uv run python manage.py run_agentic_playbook_worker --once
 ```
 
 ### The live Case fails

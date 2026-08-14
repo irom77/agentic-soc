@@ -40,6 +40,55 @@ DEMO_TAG = "case-triage-demo"
 DEMO_PASSWORD = "demopass"
 
 
+def create_live_otx_context(case, now):
+    source_ip = Artifact.objects.create(
+        name=ArtifactName.SOURCE_IP,
+        type=ArtifactType.IP_ADDRESS,
+        role=ArtifactRole.ACTOR,
+        value="8.8.8.8",
+    )
+    destination = Artifact.objects.create(
+        name=ArtifactName.DESTINATION_DOMAIN,
+        type=ArtifactType.HOSTNAME,
+        role=ArtifactRole.RELATED,
+        value="example.com",
+    )
+    file_hash = Artifact.objects.create(
+        name=ArtifactName.FILE_HASH,
+        type=ArtifactType.HASH,
+        role=ArtifactRole.RELATED,
+        value="84c82835a5d21bbcf75a61706d8ab549",
+    )
+
+    alert = Alert.objects.create(
+        case=case,
+        title="Unknown executable observed after an external download",
+        severity=Severity.HIGH,
+        confidence=Confidence.MEDIUM,
+        impact=Impact.HIGH,
+        action=AlertAction.OBSERVED,
+        labels=["endpoint", "download", "live-otx"],
+        desc=(
+            "An endpoint observed an executable with an unknown local reputation after outbound activity. "
+            "The indicators have not yet been checked against external threat intelligence."
+        ),
+        first_seen_time=now - timedelta(minutes=12),
+        last_seen_time=now - timedelta(minutes=9),
+        rule_id="DEMO-OTX-3001",
+        rule_name="Unknown executable following external download",
+        analytic_name="Endpoint file and network correlation",
+        analytic_type=AlertAnalyticType.BEHAVIORAL,
+        analytic_state=AlertAnalyticState.ACTIVE,
+        product_category=ProductCategory.EDR,
+        product_vendor="Demo Endpoint Security",
+        product_name="Demo EDR",
+        risk_level=AlertRiskLevel.HIGH,
+        status=AlertStatus.NEW,
+        correlation_uid=case.correlation_uid,
+    )
+    alert.artifacts.add(source_ip, destination, file_hash)
+
+
 def create_complex_live_llm_context(case, now):
     source_ip = Artifact.objects.create(
         name=ArtifactName.SOURCE_IP,
@@ -320,6 +369,11 @@ class Command(BaseCommand):
             action="store_true",
             help="Also create an unprocessed live-LLM Case with Alerts, artifacts, and enrichments.",
         )
+        parser.add_argument(
+            "--include-live-otx",
+            action="store_true",
+            help="Also create a Case whose artifacts can be enriched live by AlienVault OTX.",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -445,8 +499,30 @@ class Command(BaseCommand):
             create_complex_live_llm_context(complex_case, now)
             created.append(complex_case)
 
-        live_count = int(options["include_live_llm"]) + int(options["include_complex_live_llm"])
-        live_summary = f" and {live_count} live LLM Case(s)" if live_count else ""
+        if options["include_live_otx"]:
+            otx_case = create_case(
+                slug="live-otx-enrichment",
+                title="[DEMO LIVE OTX] External indicator enrichment",
+                category=CaseCategory.EDR,
+                status=CaseStatus.NEW,
+                assignee=users["demo.alice"],
+                human=("", CaseSeverity.HIGH, CaseImpact.HIGH, CasePriority.HIGH, CaseConfidence.MEDIUM),
+            )
+            otx_case.description = (
+                "Investigate an unknown executable observed after external network activity. "
+                "Collect current AlienVault OTX intelligence for the related indicators before requesting LLM analysis."
+            )
+            otx_case.summary = "Awaiting live AlienVault OTX enrichment and subsequent LLM investigation."
+            otx_case.tags = [DEMO_TAG, "demo:live-otx-enrichment", "endpoint", "threat-intel", "live-enrichment"]
+            otx_case.save(update_fields=["description", "summary", "tags", "updated_at"])
+            create_live_otx_context(otx_case, now)
+            created.append(otx_case)
+
+        live_count = sum(
+            int(options[name])
+            for name in ("include_live_llm", "include_complex_live_llm", "include_live_otx")
+        )
+        live_summary = f" and {live_count} live demo Case(s)" if live_count else ""
         self.stdout.write(self.style.SUCCESS(
             f"Seeded {len(created)} demo Cases: 18 triage Cases, 7 closed AI quality Cases{live_summary}."
         ))
