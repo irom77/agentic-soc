@@ -70,7 +70,7 @@ For the complete demo including one real LLM investigation:
 uv run python manage.py seed_case_triage_demo --include-live-llm
 ```
 
-Expected count: 26 Cases. The additional `[DEMO LIVE LLM]` Case is created with a pending `CaseAnalysisJob`. The seed code does not call the model directly; the running worker claims the job and calls the configured provider.
+Expected count: 26 Cases. The additional `[DEMO LIVE LLM]` Case has no analysis job or report yet. This gives the presenter time to show its Investigation tab displaying **No data**.
 
 Both forms replace the previous scoped dataset. To leave an existing dataset unchanged:
 
@@ -80,7 +80,7 @@ uv run python manage.py seed_case_triage_demo --no-reset
 
 Do not combine `--no-reset` with `--include-live-llm` when the dataset already exists: no new Case will be added.
 
-## 6. Verify the seed and worker
+## 6. Verify the seed, then queue the live run
 
 ```bash
 uv run python manage.py shell -c "from apps.cases.models import Case; q=Case.objects.filter(correlation_uid__startswith='DEMO-CASE-TRIAGE-'); print('total=', q.count(), 'closed=', q.filter(status='Closed').count())"
@@ -88,13 +88,21 @@ uv run python manage.py shell -c "from apps.cases.models import Case; q=Case.obj
 
 Expected results are `total=25 closed=7`, or `total=26 closed=7` with the live option.
 
-For the live job:
+Before queuing, verify that there is no live job and the report is empty:
 
 ```bash
-uv run python manage.py shell -c "from apps.agentic.models import CaseAnalysisJob; j=CaseAnalysisJob.objects.filter(trigger='demo_live_llm').latest('created_at'); print(j.status, j.error)"
+uv run python manage.py shell -c "from apps.cases.models import Case; from apps.agentic.models import CaseAnalysisJob; c=Case.objects.get(title__startswith='[DEMO LIVE LLM]'); print('report_present=', bool(c.investigation_report_ai_json), 'jobs=', CaseAnalysisJob.objects.filter(case=c).count())"
 ```
 
-The normal progression is Pending → Running → Success. Refresh after a few seconds if it is still Pending or Running.
+Expected output is `report_present=False jobs=0`. Open the Case's Investigation tab now and show **No data**.
+
+At the presentation cue, queue the Case:
+
+```bash
+uv run python manage.py queue_live_llm_case_demo
+```
+
+The worker transitions the new job through Pending → Running → Success. Refresh the Investigation tab after a few seconds to show the generated report.
 
 ## 7. Reset safely
 
@@ -139,7 +147,7 @@ kill -0 "$(cat ../.asp-runtime/case-analysis-worker.pid)"
 tail -n 100 ../.asp-runtime/case-analysis-worker.log
 ```
 
-If necessary, process one queued job in the foreground:
+If necessary, process the queued job in the foreground:
 
 ```bash
 uv run python manage.py run_agentic_case_analysis_worker --once
@@ -147,7 +155,7 @@ uv run python manage.py run_agentic_case_analysis_worker --once
 
 ### The live Case fails
 
-Read the saved job error and the worker log. Common causes are a missing enabled provider, a missing `structured_output` tag, an invalid API key/base URL/model, or a provider that cannot produce the required structured response. Fix the provider, test it in System Settings, and reseed with `--include-live-llm`; failed jobs are not retried automatically.
+Read the saved job error and the worker log. Common causes are a missing enabled provider, a missing `structured_output` tag, an invalid API key/base URL/model, or a provider that cannot produce the required structured response. Fix and test the provider, reseed with `--include-live-llm`, show the empty state again, and rerun `queue_live_llm_case_demo`; failed jobs are not retried automatically.
 
 ### Bulk Triage or AI Quality is missing
 

@@ -8,7 +8,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.agentic.models import AgenticJobStatus, CaseAnalysisJob
-from apps.agentic.services.cases import request_case_analysis
 from apps.cases.models import (
     Case,
     CaseCategory,
@@ -176,7 +175,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--include-live-llm",
             action="store_true",
-            help="Also create a Case with a pending job for a real LLM investigation.",
+            help="Also create an unprocessed Case for a before-and-after LLM investigation.",
         )
 
     @transaction.atomic
@@ -278,7 +277,6 @@ class Command(BaseCommand):
             live_case.summary = "Awaiting live Agentic SOC Case investigation."
             live_case.tags = [DEMO_TAG, "demo:live-llm-investigation", "identity", "privileged-access", "impossible-travel"]
             live_case.save(update_fields=["description", "summary", "tags", "updated_at"])
-            request_case_analysis(case=live_case, trigger="demo_live_llm")
             created.append(live_case)
 
         live_summary = " and 1 live LLM Case" if options["include_live_llm"] else ""
@@ -297,5 +295,5 @@ class Command(BaseCommand):
 
         if options["include_live_llm"]:
             self.stdout.write(
-                "Live LLM Case queued. The case-analysis worker will process [DEMO LIVE LLM] using an enabled provider."
+                "Live LLM Case is ready but not queued. Run queue_live_llm_case_demo after showing its empty Investigation tab."
             )

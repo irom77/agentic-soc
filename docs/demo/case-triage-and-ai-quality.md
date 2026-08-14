@@ -30,7 +30,7 @@ Do not present planned features as clickable functionality. The runnable present
    uv run python manage.py seed_case_triage_demo --include-live-llm
    ```
 
-   This creates 26 Cases: 18 triage, 7 closed quality examples, and 1 live-LLM Case. The seed code does not invoke an LLM itself. It queues the live Case, and the running Case analysis worker performs the external LLM call.
+   This creates 26 Cases: 18 triage, 7 closed quality examples, and 1 unprocessed live-LLM Case. It does not queue or invoke the LLM yet.
 
 3. Browse to `http://localhost:5173` and choose the **Platform** login method.
 
@@ -63,15 +63,78 @@ To restore the starting state after editing Cases, rerun the seed command.
 4. Click **Test**. Continue only when the provider test succeeds.
 5. Do not expose the API key while presenting.
 
-### B. Show the live Case and its result
+### B. Show the Case before the LLM call
 
 1. Open **Cases** and search for `[DEMO LIVE LLM]`.
 2. Open **Suspicious privileged login investigation**.
 3. Explain the supplied evidence in the description: a privileged identity, impossible travel, an unapproved source IP, and identity-administration API access.
 4. Open the **Investigation** tab.
-5. If the report is still being generated, wait a few seconds and use the tab's refresh button. The UI does not currently start analysis manually or update automatically.
-6. Walk through the generated verdict, severity, impact, priority, confidence, digest, evidence findings, attack chain/timeline, indicators, remediation, and unknowns that the model returned.
-7. Return to the Case details and show the denormalized AI fields beside the analyst-managed Case fields.
+5. Confirm that it shows **No data**. At this point `investigation_report_ai_json` is empty, the AI fields are empty, and no `CaseAnalysisJob` exists.
+6. Explain that opening or refreshing this tab only reads a saved report; it never sends the Case to an LLM.
+
+### C. Send the Case to the LLM and show the result
+
+1. From `backend`, run:
+
+   ```bash
+   uv run python manage.py queue_live_llm_case_demo
+   ```
+
+   This is the exact presentation moment when analysis is requested. The command creates a Pending `CaseAnalysisJob`; the continuously running worker claims it and sends the serialized Case and retrieved Knowledge context to the LLM provider.
+
+2. Return to the already-open Investigation tab. It does not update automatically, so wait a few seconds and use its refresh button.
+3. After the worker succeeds, the tab changes from **No data** to the structured report.
+4. Walk through the generated verdict, severity, impact, priority, confidence, digest, evidence findings, attack chain/timeline, indicators, remediation, and unknowns.
+5. Return to the Case details and show that the same response populated the Case's denormalized AI fields.
+
+The before/after state is:
+
+| Moment | Analysis job | Case AI fields | Investigation tab |
+| --- | --- | --- | --- |
+| Immediately after seeding | None | Empty | **No data** |
+| Immediately after queue command | Pending or Running | Empty | **No data** |
+| Worker completes successfully | Success | Populated | Structured LLM report |
+
+### D. Explain how the verdict was produced
+
+The verdict is an LLM recommendation, not the result of a hard-coded True Positive rule. For the seeded live Case, the investigation input contains:
+
+- The Case title and description.
+- Category `IAM` and the identity, privileged-access, and impossible-travel tags.
+- The current structured Case fields, including High severity, impact, and priority and Medium confidence. The prompt tells the model to treat these as reference values and reassess them.
+- Case timestamps, status, assignee, Summary, and audit history.
+- Any related Alerts, enrichments, comments, audit entries, and matching Knowledge records that exist at run time.
+
+The initial seeded Case deliberately has no related Alerts, artifacts, enrichments, comments, or Knowledge records. Its substantive evidence is therefore limited to these three assertions in the description:
+
+1. A privileged account successfully signed in from a new country shortly after a successful login from its usual location.
+2. The new source IP was outside the approved VPN range.
+3. The account subsequently accessed identity-administration APIs.
+
+In the observed demo run, the model used those assertions to report:
+
+- Impossible travel as evidence of possible credential compromise or session hijacking.
+- The unapproved network as evidence that the access did not follow the expected VPN path.
+- Identity-administration API access as a high-risk post-login action by a privileged identity.
+
+It then selected `True Positive`. That selection is model judgment: the prompt asks whether the Case is closer to a real incident, Suspicious, False Positive, Benign, or Insufficient Data, but it does not encode a formula that forces True Positive for these inputs. A different conforming model or added context may return a different verdict.
+
+Be explicit about the boundary between evidence and inference:
+
+| Report statement | Classification |
+| --- | --- |
+| The description says the login succeeded | Supplied Case assertion |
+| The source was outside the approved VPN range | Supplied Case assertion |
+| Identity-administration APIs were accessed | Supplied Case assertion |
+| Credentials were compromised or a session was hijacked | LLM inference, not confirmed |
+| The actor attempted privilege escalation or configuration changes | LLM inference, not confirmed |
+| The activity is a True Positive | LLM recommendation requiring analyst validation |
+
+The model should list missing account identity, source IP, exact timestamps, API calls, resulting changes, authentication method, and broader scope under **Unknowns**. Because the seed lacks the underlying telemetry, an analyst can reasonably challenge a High-confidence True Positive and prefer Suspicious or Medium confidence. Use that disagreement to demonstrate why the Investigation report exposes evidence and unknowns instead of presenting the verdict as ground truth.
+
+Suggested narration:
+
+> The model classified this as True Positive because the Case text asserts a successful impossible-travel login followed by privileged identity API access. Those are strong signals, but the raw authentication and API events are not attached to this seeded Case. The compromise and attacker intent are inferences, so an analyst should validate the report and may lower the verdict or confidence until the missing telemetry is obtained.
 
 The key architecture to explain is:
 
@@ -82,7 +145,7 @@ Case/Alert creation → pending CaseAnalysisJob → case-analysis worker
 
 The seed command uses `trigger=demo_live_llm`, making the run distinguishable from the prepared reports, whose trigger is `demo-seed`.
 
-### C. Prove that the run was live
+### E. Prove that the run was live
 
 Run this from `backend`:
 
@@ -99,7 +162,7 @@ uv run python manage.py shell -c "from apps.agentic.models import CaseAnalysisJo
 tail -n 100 ../.asp-runtime/case-analysis-worker.log
 ```
 
-After correcting the provider, rerun `seed_case_triage_demo --include-live-llm` to create a fresh pending job. Failed jobs are retained as evidence and are not automatically retried.
+After correcting the provider, rerun `seed_case_triage_demo --include-live-llm` to recreate the empty Case, then run `queue_live_llm_case_demo` at the presentation cue. Failed jobs are retained as evidence and are not automatically retried.
 
 ## Part 4: Preview the prepared AI Quality dataset
 

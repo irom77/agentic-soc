@@ -16,7 +16,7 @@ Start with [Setup and reset](setup-and-reset.md), then follow [Case triage, live
 | Per-Case AI–Human Agreement | Not implemented |
 | Global AI Quality page and evaluation lifecycle | Not implemented |
 
-The default seed creates 25 Cases and never schedules an external LLM call. Add `--include-live-llm` to create a 26th Case with a pending real-analysis job. When the Case analysis worker is running, that job calls the enabled `structured_output` provider.
+The default seed creates 25 Cases and never schedules an external LLM call. Add `--include-live-llm` to create a 26th unprocessed Case. Its Investigation tab initially shows **No data**. Run `queue_live_llm_case_demo` when ready; the Case analysis worker then calls the enabled `structured_output` provider and saves the report shown by the tab.
 
 ## Dataset at a glance
 
