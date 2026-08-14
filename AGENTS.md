@@ -2,7 +2,7 @@
 
 - Do not run superpower-related skills unless the user explicitly requests them.
 - If the `superpower:writing-plan` skill is disabled, implement directly from the specification. Do not generate test code while implementing a feature unless the user explicitly requests it.
-- `TODO.md` is edited manually by the user. Do not include it in commits or mention it separately.
+- You may update `TODO.md` and include it in commits.
 
 ### Backend Rules
 
