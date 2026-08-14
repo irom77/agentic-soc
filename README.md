@@ -40,6 +40,23 @@ Pass a Django test label to run a specific test module, class, or method:
 ./test.sh apps.enrichments.tests
 ```
 
+### CLI
+
+Install the ASP CLI with `pipx`:
+
+```bash
+pipx install asp-cli
+```
+
+Create an API key in **Personal Center → API Keys**, then authenticate the CLI and verify it:
+
+```bash
+asp auth login --api-url http://localhost:8001 --api-key asp_xxx
+asp case list
+```
+
+See the [CLI README](cli/README.md) for authentication, usage, and upgrade instructions.
+
 ---
 
 ### Alert Floods, Converged into Actionable Cases
