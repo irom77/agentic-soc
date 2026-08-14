@@ -91,6 +91,49 @@ MIT licensed, fully local deployment supported. Security data stays inside your 
 
 [https://asp.viperrtp.com](https://asp.viperrtp.com)
 
+## Maintaining This Product Fork
+
+This product variant is maintained on the long-lived `product-fork` branch and is
+not intended to be merged back into `master`. The `master` branch remains a clean
+reference to the upstream project.
+
+Before refreshing `master`, commit or stash any work in progress. Then fetch the
+upstream repository and fast-forward the local reference branch:
+
+```bash
+git fetch origin
+git switch master
+git pull --ff-only origin master
+```
+
+To review upstream changes without modifying `product-fork`:
+
+```bash
+git log --oneline product-fork..master
+git diff product-fork...master
+```
+
+To adopt a complete upstream commit, copy its hash from the log and cherry-pick
+it onto the fork:
+
+```bash
+git switch product-fork
+git cherry-pick <commit-hash>
+```
+
+To adopt only selected files from upstream instead of a complete commit:
+
+```bash
+git switch product-fork
+git restore --source master -- path/to/file
+git diff
+git add path/to/file
+git commit -m "chore: adopt selected upstream change"
+```
+
+Resolve and test any conflicts in the context of `product-fork`; upstream commits
+may depend on earlier changes that also need to be selected.
+
 ## 404Starlink
 
 <img src="./img/logo.png" width="30%">
