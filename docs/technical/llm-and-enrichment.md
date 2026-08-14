@@ -28,6 +28,23 @@ The first call generates Knowledge search terms. Failure falls back to determini
 
 The report schema contains verdict, severity, impact, priority, confidence, digest, affected assets, evidence findings, attack chain, timeline, indicators, remediations, and unknowns. Run metadata records the trigger, source identity, profile version, generation time, keywords, and Knowledge snapshot.
 
+### Inspect the flow from the command line
+
+The educational command below prints every stage and uses a real Case from the database. Preview mode does not call an LLM and substitutes the production fallback keywords so that it can still demonstrate the Knowledge query and final payload:
+
+```bash
+cd backend
+uv run python manage.py explain_case_analysis case_000001
+```
+
+Add `--invoke` to make the same two structured LLM calls used by the worker:
+
+```bash
+uv run python manage.py explain_case_analysis case_000001 --invoke
+```
+
+An optional analyst instruction can be included with `--user-input "Focus on lateral movement"`. The command reads the same prompts, runtime provider configuration, serialization profile, Knowledge table, and output schemas as the worker. It is deliberately read-only: unlike the worker, it does not update the Case or a Case-analysis job. See the [Case Analysis CLI walkthrough](case-analysis-cli.md) for its complete output, safety behavior, and source mapping.
+
 ## What the LLM sees
 
 The Investigation profile contains triage fields, assignee display name, Alerts, their Artifacts, summary fields from Enrichments at each level, Case comments, and up to 100 filtered Case audit entries. It intentionally excludes internal IDs, Alert `raw_data`/`unmapped`, Enrichment `data`, and previous Case AI fields so prior model output is not treated as new evidence.

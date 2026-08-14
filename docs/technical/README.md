@@ -5,8 +5,10 @@ This section is for platform developers, operators, and integrators. It describe
 1. [Architecture and stack](architecture-and-stack.md)
 2. [PostgreSQL data model](postgres-and-data-model.md)
 3. [Workers and Agentic Runtime](workers-and-runtime.md)
-4. [LLM investigation and enrichment](llm-and-enrichment.md)
-5. [Demo management command reference](management-commands.md)
+4. [Playbooks](playbooks.md)
+5. [LLM investigation and enrichment](llm-and-enrichment.md)
+6. [Case Analysis CLI walkthrough](case-analysis-cli.md)
+7. [Demo management command reference](management-commands.md)
 
 For demo accounts and the screen-by-screen walkthrough, see the [demo documentation](../demo/README.md).
 

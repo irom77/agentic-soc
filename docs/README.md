@@ -15,6 +15,7 @@ This directory contains internal project documentation for development, demonstr
 
 | Document | Purpose |
 | --- | --- |
+| [`faq.md`](faq.md) | Frequently asked questions about Workers, agents, and agentic platform terminology. |
 | [`release-runbook.md`](release-runbook.md) | Agent and maintainer procedure for preparing, validating, committing, and publishing an ASP release. |
 
 ## Documentation boundaries
