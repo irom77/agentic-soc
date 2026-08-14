@@ -91,9 +91,9 @@ MIT licensed, fully local deployment supported. Security data stays inside your 
 
 [https://asp.viperrtp.com](https://asp.viperrtp.com)
 
-## Maintaining This Product Fork
+## Maintaining the Cyber Edition
 
-This product variant is maintained on the long-lived `product-fork` branch and is
+This product variant is maintained on the long-lived `cyber-edition` branch and is
 not intended to be merged back into `master`. The `master` branch remains a clean
 reference to the upstream project.
 
@@ -101,37 +101,37 @@ Before refreshing `master`, commit or stash any work in progress. Then fetch the
 upstream repository and fast-forward the local reference branch:
 
 ```bash
-git fetch origin
+git fetch upstream
 git switch master
-git pull --ff-only origin master
+git merge --ff-only upstream/master
 ```
 
-To review upstream changes without modifying `product-fork`:
+To review upstream changes without modifying `cyber-edition`:
 
 ```bash
-git log --oneline product-fork..master
-git diff product-fork...master
+git log --oneline cyber-edition..master
+git diff cyber-edition...master
 ```
 
 To adopt a complete upstream commit, copy its hash from the log and cherry-pick
 it onto the fork:
 
 ```bash
-git switch product-fork
+git switch cyber-edition
 git cherry-pick <commit-hash>
 ```
 
 To adopt only selected files from upstream instead of a complete commit:
 
 ```bash
-git switch product-fork
+git switch cyber-edition
 git restore --source master -- path/to/file
 git diff
 git add path/to/file
 git commit -m "chore: adopt selected upstream change"
 ```
 
-Resolve and test any conflicts in the context of `product-fork`; upstream commits
+Resolve and test any conflicts in the context of `cyber-edition`; upstream commits
 may depend on earlier changes that also need to be selected.
 
 ## 404Starlink
