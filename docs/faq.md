@@ -29,6 +29,20 @@ Use these terms when discussing the component:
 - **LLM-assisted analyst** for its user-facing behavior.
 - **Case Analysis Agent** only as a broader product term for the bounded agentic behavior.
 
+## What is Case serialization, and why is it needed?
+
+Serialization converts a Django `Case` and its related evidence into a plain Python dictionary that can be encoded as JSON and included in an LLM message. An LLM cannot consume a Django model object directly, so the Case Analysis workflow creates a controlled snapshot of the data the model is allowed to see.
+
+The Investigation serialization profile:
+
+- selects relevant Case triage fields;
+- includes related Alerts, Artifacts, summarized Enrichments, comments, and filtered audit history;
+- converts values such as dates and UUIDs into JSON-compatible strings;
+- represents the assignee by display name instead of passing a Django user object; and
+- excludes internal identifiers, raw/unmapped Alert data, full Enrichment data, and previous AI-generated Case fields.
+
+Serialization only reads the database and builds the request payload. It does not modify the Case, call the LLM, or save an investigation report. The resulting dictionary is subsequently used for Knowledge keyword generation and as part of the final investigation prompt.
+
 ## Are the other Workers agents?
 
 No. The current Workers provide execution infrastructure for different kinds of work:

@@ -43,6 +43,16 @@ uv run python manage.py explain_case_analysis case_000001 \
   --user-input "Focus on lateral movement"
 ```
 
+## Example transcripts
+
+The following captured `--invoke` runs show the complete serialized input, both prompts, generated Knowledge keywords, Knowledge search results, and final structured report:
+
+- [`case_000339`: suspicious privileged login](case-analysis-000339.md)
+- [`case_000340`: correlated identity and endpoint activity](case-analysis-000340.md)
+- [`case_000341`: external indicator enrichment](case-analysis-000341.md)
+
+These are snapshots of real model runs. Re-running the command may produce different wording or conclusions, and the transcripts may contain Case evidence that should be handled as potentially sensitive data.
+
 ## How it differs from the worker
 
 | Behavior | Educational command | Case Analysis Worker |

@@ -6,6 +6,14 @@ Administrators configure OpenAI-compatible providers with name, base URL, model,
 
 ASP uses LangChain `ChatOpenAI` at temperature `0.0` and Pydantic `with_structured_output()` schemas. A configured proxy creates explicit synchronous and asynchronous HTTPX clients; an empty proxy disables environment-proxy inheritance. A successful provider connection test does not guarantee that its model can satisfy the structured schema.
 
+## Case serialization
+
+The Case Analysis workflow cannot send a Django `Case` model instance directly to an LLM. It first serializes the Case into a plain Python dictionary that can be encoded as JSON and placed in a LangChain `HumanMessage`.
+
+Serialization is also the boundary that controls the model's input. The Investigation profile selects relevant Case fields and recursively includes related Alerts, Artifacts, summarized Enrichments, comments, and up to 100 filtered audit entries. It converts dates and UUIDs to strings and an assignee to a display name. Internal identifiers, Alert `raw_data`/`unmapped`, Enrichment `data`, and previous Case AI fields are omitted so that internal or prior generated data is not treated as new evidence.
+
+This step is read-only: it creates a snapshot and neither calls the LLM nor updates the Case. The workflow uses the serialized snapshot first to request Knowledge search keywords and then combines it with matching Knowledge records for the structured investigation request.
+
 ## Two-stage Investigation flow
 
 ```mermaid
