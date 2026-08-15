@@ -8,7 +8,8 @@ This section is for platform developers, operators, and integrators. It describe
 4. [Playbooks](playbooks.md)
 5. [LLM investigation and enrichment](llm-and-enrichment.md)
 6. [Case Analysis CLI walkthrough](case-analysis-cli.md)
-7. [Demo management command reference](management-commands.md)
+7. [Standalone Case Analyzer](standalone-case-analyzer.md)
+8. [Demo management command reference](management-commands.md)
 
 For demo accounts and the screen-by-screen walkthrough, see the [demo documentation](../demo/README.md).
 
