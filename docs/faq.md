@@ -60,3 +60,28 @@ The useful architectural distinction is: **Workers provide the execution infrast
 The Case Analysis component would more closely match the technical meaning of an agent if it gained dynamic tool selection, observation-driven iteration, planning, and explicit termination rules.
 
 For implementation details, see [Workers and Agentic Runtime](technical/workers-and-runtime.md) and [LLM investigation and enrichment](technical/llm-and-enrichment.md).
+
+## How difficult would it be to replace Django while keeping React?
+
+Keeping React is straightforward if the replacement backend preserves the existing `/api` and WebSocket contracts. Replacing Django itself would be a major migration because Django currently provides more than HTTP routing: the project depends on its ORM and migrations, authentication and permissions, serialization and validation, audit signals, storage, Redis-backed realtime events, management commands, and background Workers. The Python implementation also contains the existing LLM, SIEM, threat-intelligence, CMDB, Splunk, Elasticsearch, and OpenCTI integrations.
+
+A complete Bun and Elysia rewrite would therefore be one of the highest-effort options. It would require replacing the Django data model and rewriting Python-specific Workers and integrations in TypeScript. For one experienced developer, full production parity would likely take several months rather than weeks.
+
+Lower-effort options are:
+
+| Option | Relative effort | Result |
+| --- | --- | --- |
+| Improve the existing Django/DRF backend | Lowest | Retains the current architecture while addressing measured performance or maintainability problems. |
+| Gradually replace DRF endpoints with Django Ninja | Low | Adds typed schemas and more explicit endpoints while retaining Django models, migrations, authentication, and Workers. |
+| Add FastAPI as the HTTP layer while temporarily retaining Django models and Workers | Medium | Provides a gradual path away from DRF, but Django remains a dependency during the transition. |
+| Replace Django with FastAPI or Litestar and SQLAlchemy | High | Eliminates Django while preserving more of the existing Python integrations and workflow code. |
+| Replace Django with Bun and Elysia | Highest | Moves to a TypeScript backend but requires the broadest rewrite. |
+
+The recommended choice depends on the goal:
+
+- For performance, profile and optimize the existing ASGI Django application first.
+- For typed request and response schemas, migrate selected DRF endpoints to Django Ninja.
+- If eliminating Django is mandatory, use a gradual FastAPI migration and retain the Python Workers until their interfaces are separated from Django.
+- Choose Bun and Elysia only when adopting a TypeScript-only backend is valuable enough to justify a full rewrite.
+
+Generating TypeScript types or a frontend client from the existing OpenAPI schema can provide frontend/backend type sharing without replacing Django.
