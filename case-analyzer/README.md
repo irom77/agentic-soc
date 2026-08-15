@@ -4,7 +4,11 @@ This package runs the Case Analysis LLM workflow without Django, PostgreSQL, or 
 
 For a detailed explanation of the package architecture and execution flow, see the [Case Analyzer code walkthrough](case-analyzer-code.md).
 
+For common questions about evidence handling and generated conclusions, see the [Case Analyzer FAQ](FAQ.md).
+
 For a complete nested-container example and recorded live LLM output, see the [Splunk SOAR case analysis result](examples/splunk-soar-analysis.md).
+
+For contrasting cases that exercise evidence-oriented reasoning rather than keyword matching, see the [reasoning examples and recorded comparison](examples/reasoning/README.md).
 
 ## Run it
 
@@ -39,6 +43,24 @@ uv run case-analyzer examples/generic-case.json \
 ```
 
 `CASE_ANALYZER_BASE_URL` is optional when using OpenAI. The equivalent `OPENAI_MODEL`, `OPENAI_API_KEY`, and `OPENAI_BASE_URL` variables are also accepted.
+
+## Run the reasoning examples
+
+After configuring the provider variables above, run the automated comparison from the repository root:
+
+```bash
+case-analyzer/test.sh
+```
+
+The script sends three synthetic nested SOAR cases to the configured LLM: alarming wording with benign evidence, reassuring wording with malicious evidence, and alarming wording with insufficient evidence. It prints a Markdown table comparing each actual verdict with an allowed expected set. A result outside its expected set is marked `REVIEW` and makes the script exit nonzero so that a person can inspect the model's reasoning.
+
+By default, full structured reports are written to a temporary directory whose path is printed after the table. Pass a directory to retain them at a chosen location:
+
+```bash
+case-analyzer/test.sh ./reasoning-results
+```
+
+Each run makes three live LLM calls and may incur provider charges. See the [reasoning examples and recorded comparison](examples/reasoning/README.md) for the scenarios, expectations, limitations, and results from a recorded run.
 
 ## Input formats
 
